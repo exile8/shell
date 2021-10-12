@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
 
 char *get_word(char *end) {
     char *word_ptr = NULL;
@@ -50,21 +53,27 @@ char **remove_list(char **list) {
 }
 
 int main() {
-    char **test = get_list();
-    int index = 0;
-    /* Выводим слова без пробелов */
-    while (test[index] != NULL) {
-        fputs(test[index], stdout);
-        index++;
+    char **command = NULL;
+    pid_t pid;
+    while (1) {
+        command = get_list();
+        if (!strcmp(command[0], "exit") || !strcmp(command[0], "quit")) {
+            command = remove_list(command);
+            return 0;
+        }
+        if ((pid = fork()) < 0) {
+            perror("fork");
+            exit(1);
+        }
+        if (pid == 0) {
+            execvp(command[0], command);
+            /* Ошибка exec */
+            perror("exec");
+            exit(1);
+        } else if (wait(NULL) < 0) {
+            perror("wait");
+            exit(1);
+        }
+        command = remove_list(command);
     }
-    index = 0;
-    putchar('\n');
-    /* Выводим слова в столбик*/
-    while (test[index] != NULL) {
-        fputs(test[index], stdout);
-        putchar('\n');
-        index++;
-    }
-    test = remove_list(test);
-    return 0;
 }
