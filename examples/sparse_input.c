@@ -28,8 +28,6 @@ char **get_list() {
     char last_symb = '\0';
     int list_len = 0;
     /* Считываем строку до переноса, добавляя слова в динамический массив */
-    list = realloc(list, (list_len + 1) * sizeof(char *));
-    list[list_len] = get_word(&last_symb);
     while (last_symb != '\n') {
         list = realloc(list, (list_len + 1) * sizeof(char *));
         list[list_len] = get_word(&last_symb);
