@@ -53,7 +53,6 @@ char **get_list(char **input_stream, char **output_stream) {
     /* Последняя строка в массиве - пустая */
     list = realloc(list, (list_len + 1) * sizeof(char *));
     list[list_len] = NULL;
-    free(filename);
     return list;
 }
 
@@ -129,6 +128,12 @@ int main() {
         } else if (wait(NULL) < 0) {
             perror("wait");
             exit(1);
+        }
+        if (input != NULL) {
+            free(input);
+        }
+        if (output != NULL) {
+            free(output);
         }
         input = NULL;
         output = NULL;
