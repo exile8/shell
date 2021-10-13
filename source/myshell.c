@@ -66,38 +66,40 @@ char **remove_list(char **list) {
     return NULL;
 }
 
-void redirect_input(char *input_stream) {
+int redirect_input(char *input_stream) {
     int fd = open(input_stream, O_RDONLY);
     if (fd < 0) {
         perror("open");
-        exit(1);
+        return 1;
     }
     if (dup2(fd, 0) < 0) {
         perror("dup2");
-        exit(1);
+        return 1;
     }
     if (close(fd) < 0) {
         perror("close");
-        exit(1);
+        return 1;
     }
     free(input_stream);
+    return 0;
 }
 
-void redirect_output(char *output_stream) {
+int redirect_output(char *output_stream) {
     int fd = open(output_stream, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         perror("open");
-        exit(1);
+        return 1;
     }
     if (dup2(fd, 1) < 0) {
         perror("dup2");
-        exit(1);
+        return 1;
     }
     if (close(fd) < 0) {
         perror("close");
-        exit(1);
+        return 1;
     }
     free(output_stream);
+    return 0;
 }
 
 int main() {
@@ -116,14 +118,21 @@ int main() {
         }
         if (pid == 0) {
             if (input != NULL) {
-                redirect_input(input);
+                if (redirect_input(input) > 0) {
+                   command = remove_list(command); 
+                   return 1;
+                }
             }
             if (output != NULL) {
-                redirect_output(output);
+                if (redirect_output(output) > 0) {
+                    command = remove_list(command);
+                    return 1;
+                }
             }
             execvp(command[0], command);
             /* Ошибка exec */
             perror("exec");
+            command = remove_list(command);
             exit(1);
         } else if (wait(NULL) < 0) {
             perror("wait");
