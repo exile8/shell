@@ -80,7 +80,6 @@ int redirect_input(char *input_stream) {
         perror("close");
         return 1;
     }
-    free(input_stream);
     return 0;
 }
 
@@ -98,7 +97,6 @@ int redirect_output(char *output_stream) {
         perror("close");
         return 1;
     }
-    free(output_stream);
     return 0;
 }
 
@@ -122,19 +120,23 @@ int main() {
                    command = remove_list(command); 
                    return 1;
                 }
+                free(input);
             }
             if (output != NULL) {
                 if (redirect_output(output) > 0) {
                     command = remove_list(command);
                     return 1;
                 }
+                free(output);
             }
             execvp(command[0], command);
             /* Ошибка exec */
             perror("exec");
             command = remove_list(command);
             exit(1);
-        } else if (wait(NULL) < 0) {
+        }
+        if (wait(NULL) < 0) {
+            command = remove_list(command);
             perror("wait");
             exit(1);
         }
