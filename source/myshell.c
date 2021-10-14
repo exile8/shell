@@ -4,6 +4,8 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 char *get_word(char *end) {
     char *word_ptr = NULL;
@@ -110,8 +112,10 @@ int main() {
             command = remove_list(command);
             return 0;
         }
-        if ((pid = fork()) < 0) {
+        pid = fork();
+        if (pid < 0) {
             perror("fork");
+            command = remove_list(command);
             exit(1);
         }
         if (pid == 0) {
@@ -149,5 +153,6 @@ int main() {
         input = NULL;
         output = NULL;
         command = remove_list(command);
-    }
+        command = NULL;
+        }
 }
