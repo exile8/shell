@@ -124,7 +124,6 @@ int main() {
             exit(1);
         }
         if (pid == 0) {
-            printf("%u\n", getpid());
             if (redirect_input(input) > 0) {
                 command = remove_list(command); 
                 return 1;
