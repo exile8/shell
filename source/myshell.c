@@ -69,6 +69,9 @@ char **remove_list(char **list) {
 }
 
 int redirect_input(char *input_stream) {
+    if (input_stream == NULL) {
+        return 0;
+    }
     int fd = open(input_stream, O_RDONLY);
     if (fd < 0) {
         perror("open");
@@ -82,10 +85,14 @@ int redirect_input(char *input_stream) {
         perror("close");
         return 1;
     }
+    free(input_stream);
     return 0;
 }
 
 int redirect_output(char *output_stream) {
+    if (output_stream == NULL) {
+        return 0;
+    }
     int fd = open(output_stream, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         perror("open");
@@ -99,6 +106,7 @@ int redirect_output(char *output_stream) {
         perror("close");
         return 1;
     }
+    free(output_stream);
     return 0;
 }
 
@@ -119,19 +127,13 @@ int main() {
             exit(1);
         }
         if (pid == 0) {
-            if (input != NULL) {
-                if (redirect_input(input) > 0) {
-                   command = remove_list(command); 
-                   return 1;
-                }
-                free(input);
+            if (redirect_input(input) > 0) {
+                command = remove_list(command); 
+                return 1;
             }
-            if (output != NULL) {
-                if (redirect_output(output) > 0) {
-                    command = remove_list(command);
-                    return 1;
-                }
-                free(output);
+            if (redirect_output(output) > 0) {
+                command = remove_list(command);
+                return 1;
             }
             execvp(command[0], command);
             /* Ошибка exec */
@@ -154,5 +156,5 @@ int main() {
         output = NULL;
         command = remove_list(command);
         command = NULL;
-        }
+    }
 }
