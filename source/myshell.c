@@ -72,14 +72,17 @@ int redirect_input(char *input_stream) {
     int fd = open(input_stream, O_RDONLY);
     if (fd < 0) {
         perror("open");
+        free(input_stream);
         return 1;
     }
     if (dup2(fd, 0) < 0) {
         perror("dup2");
+        free(input_stream);
         return 1;
     }
     if (close(fd) < 0) {
         perror("close");
+        free(input_stream);
         return 1;
     }
     free(input_stream);
@@ -93,14 +96,17 @@ int redirect_output(char *output_stream) {
     int fd = open(output_stream, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         perror("open");
+        free(output_stream);
         return 1;
     }
     if (dup2(fd, 1) < 0) {
         perror("dup2");
+        free(output_stream);
         return 1;
     }
     if (close(fd) < 0) {
         perror("close");
+        free(output_stream);
         return 1;
     }
     free(output_stream);
