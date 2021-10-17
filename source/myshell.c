@@ -145,13 +145,12 @@ int main() {
         }
         if (input != NULL) {
             free(input);
+            input = NULL;
         }
         if (output != NULL) {
             free(output);
+            output = NULL;
         }
-        input = NULL;
-        output = NULL;
         command = remove_list(command);
-        command = NULL;
     }
 }
