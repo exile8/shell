@@ -33,21 +33,18 @@ char **get_list(char **input_stream, char **output_stream) {
     char **list = NULL;
     char last_symb = '\0';
     int list_len = 0;
-    char *filename = NULL;
     /* Считываем строку до переноса, добавляя слова в динамический массив */
     while (last_symb != '\n') {
         list = realloc(list, (list_len + 1) * sizeof(char *));
         list[list_len] = get_word(&last_symb);
-        if (!strcmp(list[list_len], "<")) {
+        if (!strcmp(list[list_len], "<") && last_symb != '\n') {
             free(list[list_len]);
-            filename = get_word(&last_symb);
-            *input_stream = filename;
+            *input_stream = get_word(&last_symb);
             continue;
         }
-        if (!strcmp(list[list_len], ">")) {
+        if (!strcmp(list[list_len], ">") && last_symb != '\n') {
             free(list[list_len]);
-            filename = get_word(&last_symb);
-            *output_stream = filename;
+            *output_stream = get_word(&last_symb);
             continue;
         }
         list_len++;
@@ -127,6 +124,7 @@ int main() {
             exit(1);
         }
         if (pid == 0) {
+            printf("%u\n", getpid());
             if (redirect_input(input) > 0) {
                 command = remove_list(command); 
                 return 1;
