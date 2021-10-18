@@ -203,11 +203,11 @@ int execute_pipe(char **arg1, char **arg2, char *input_stream, char *output_stre
             perror("dup2");
             return 1;
         }
-        if (close(fd[0] < 0)) {
+        if (close(fd[0]) < 0) {
             perror("close");
             return 1;
         }
-        if (close(fd[1] < 0)) {
+        if (close(fd[1]) < 0) {
             perror("close");
             return 1;
         }
@@ -228,11 +228,11 @@ int execute_pipe(char **arg1, char **arg2, char *input_stream, char *output_stre
             perror("dup2");
             return 1;
         }
-        if (close(fd[0] < 0)) {
+        if (close(fd[0]) < 0) {
             perror("close");
             return 1;
         }
-        if (close(fd[1] < 0)) {
+        if (close(fd[1]) < 0) {
             perror("close");
             return 1;
         }
@@ -305,7 +305,7 @@ int main() {
             command2 = NULL;
         }
         if (input != NULL) {
-             free(input);
+            free(input);
             input = NULL;
         }
         if (output != NULL) {
