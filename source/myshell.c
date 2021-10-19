@@ -17,7 +17,7 @@ char *get_word(char *end) {
         symbol = getchar();
     }
     /* Считываем слово до следующего разделительного символа */
-    while (symbol != ' ' && symbol != '\t' && symbol != '\n' && symbol != '|') {
+    while (symbol != ' ' && symbol != '\t' && symbol != '\n') {
         word_ptr = realloc(word_ptr, (len + 1) * sizeof(char));
         word_ptr[len] = symbol;
         len++;
@@ -29,7 +29,7 @@ char *get_word(char *end) {
     return word_ptr;
 }
 
-char **get_list(int *pipe_flag, char **input_stream, char **output_stream) {
+char **get_list() {
     char **list = NULL;
     char last_symb = '\0';
     int len = 0;
@@ -262,10 +262,8 @@ int main() {
             exit(1);
         }
         command = remove_list(command);
-        command = NULL;
         if (command2 != NULL) {
             command2 = remove_list(command2);
-            command2 = NULL;
         }
         if (input != NULL) {
             free(input);
