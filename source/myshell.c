@@ -132,13 +132,159 @@ int redirect_output(int fd) {
     return 0;
 }
 
-/* int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
+int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num][2];
-    int index;
+    int i;
     pid_t pid;
 
-    if (pipe_num = 0)
-} */
+    if (pipe_num == 0) {
+        if ((pid = fork()) < 0) {
+            perror("fork");
+            return 1;
+        }
+        if (pid == 0) {
+            if (redirect_input(input_fd) > 0) {
+                return 1;
+            }
+            if (redirect_output(output_fd) > 0) {
+                return 1;
+            }
+
+            execvp(cmd[0][0], cmd[0]);
+            perror("exec");
+            return 1;
+        } else {
+            if (waitpid(pid, NULL, 0) < 0) {
+                perror("waitpid");
+                return 1;
+            }
+            return 0;
+        }
+    }
+    
+    if (pipe(fd[0]) < 0) {
+        perror("pipe");
+        return 1;
+    }
+    if ((pid = fork()) < 0) {
+        perror("fork");
+        return 1;
+    }
+    if (pid == 0) {
+        if (redirect_input(input_fd) < 0) {
+            return 1;
+        }
+        if (dup2(fd[0][1], STDOUT_FILENO) < 0) {
+            perror("dup2");
+            return 1;
+        }
+        if (close(fd[0][0]) < 0) {
+            close(fd[0][1]);
+            perror("close");
+            return 1;
+        }
+        if (close(fd[0][1]) < 0) {
+            perror("close");
+            return 1;
+        }
+
+        execvp(cmd[0][0], cmd[0]);
+        perror("exec");
+        return 1;
+    } else {
+        if (close(fd[0][1]) < 0) {
+            perror("close");
+            return 1;
+        }
+        if (waitpid(pid, NULL, 0) < 0) {
+            perror("waitpid");
+            return 1;
+        }
+    }
+
+    for (i = 1; i < pipe_num; i++) {
+        if (pipe(fd[i]) < 0) {
+            perror("pipe");
+            return 1;
+        }
+
+        if ((pid = fork()) < 0) {
+            perror("fork");
+            return 1;
+        }
+        if (pid == 0) {
+            if (dup2(fd[i - 1][0], STDIN_FILENO) < 0) {
+                perror("dup2");
+                return 1;
+            }
+            if (close(fd[i - 1][0]) < 0) {
+                close(fd[i - 1][1]);
+                perror("close");
+                return 1;
+            }
+            
+            if (dup2(fd[i][1], STDOUT_FILENO) < 0) {
+                perror("dup2");
+                return 1;
+            }
+            if (close(fd[i][0]) < 0) {
+                close(fd[i][1]);
+                perror("close");
+                return 1;
+            }
+            if (close(fd[i][1]) < 0) {
+                perror("close");
+                return 1;
+            }
+
+            execvp(cmd[i][0], cmd[i]);
+            perror("exec");
+            return 1;
+        } else {
+            if (close(fd[i][1]) < 0) {
+                perror("close");
+                return 1;
+            }
+            if (waitpid(pid, NULL, 0) < 0) {
+                perror("waitpid");
+                return 1;
+            }
+        }
+    }
+
+    if ((pid = fork()) < 0) {
+        perror("fork");
+        return 1;
+    }
+    if (pid == 0) {
+        if (dup2(fd[i - 1][0], STDIN_FILENO) < 0) {
+            perror("dup2");
+            return 1;
+        }
+        if (close(fd[i - 1][0]) < 0) {
+            close(fd[i - 1][1]);
+            perror("close");
+            return 1;
+        }
+        if (redirect_output(output_fd) > 0) {
+            return 1;
+        }
+
+        execvp(cmd[i][0], cmd[i]);
+        perror("exec");
+        return 1;
+    } else {
+        if (close(fd[i - 1][0]) < 0) {
+            perror("close");
+            return 1;
+        }
+        if (waitpid(pid, NULL, 0) < 0) {
+            perror("waitpid");
+            return 1;
+        }
+    }
+    return 0;
+}
 
 int main() {
     int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, pipes = 0;
