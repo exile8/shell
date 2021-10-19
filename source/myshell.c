@@ -77,9 +77,14 @@ char ***remove_list(char ***list) {
 }
 
 char ***prepare_list(char ***list, int *input_fd, int *output_fd) {
+    int wrong_input = 0;
     for (int i = 0; list[i]; i++) {
         for (int j = 1; list[i][j]; j++) {
             if (list[i][j - 1] != NULL && !strcmp(list[i][j - 1], "<")) {
+                if (list[i][j + 1] != NULL && strcmp(list[i][j + 1], ">")) {
+                    wrong_input = 1;
+                    break;
+                }
                 *input_fd = open(list[i][j], O_RDONLY);
                 free(list[i][j - 1]);
                 list[i][j - 1] = NULL;
@@ -87,6 +92,10 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd) {
                 list[i][j] = NULL;
             }
             if (list[i][j - 1] != NULL && !strcmp(list[i][j - 1], ">")) {
+                if (list[i][j + 1] != NULL && strcmp(list[i][j + 1], "<")) {
+                    wrong_input = 1;
+                    break;
+                }
                 *output_fd = open(list[i][j], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
                 free(list[i][j - 1]);
                 list[i][j - 1] = NULL;
@@ -97,6 +106,10 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd) {
     }
     if (input_fd < 0 || output_fd < 0) {
         perror("open");
+        list = remove_list(list);
+    }
+    if (wrong_input) {
+        puts("Wrong input");
         list = remove_list(list);
     }
     return list;
