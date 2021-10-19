@@ -62,13 +62,6 @@ char **get_list(int *pipe_flag, char **input_stream, char **output_stream) {
     return list;
 }
 
-/* char ***get_commands(int *pipe_fl) {
-    char ***cmds = malloc(2 * sizeof(char **));
-    cmds[0] = get_list();
-    cmds[1] = get_list();
-    return cmds;
-} */
-
 char **remove_list(char **list) {
     int index = 0;
     while (list[index] != NULL) {
@@ -78,13 +71,6 @@ char **remove_list(char **list) {
     free(list);
     return NULL;
 }
-
-/* char ***remove_args(char ***args) {
-    args[0] = remove_list(args[0]);
-    args[1] = remove_list(args[1]);
-    free(args);
-    return NULL;
-} */
 
 int redirect_input(char *input_stream) {
     if (input_stream == NULL) {
@@ -133,29 +119,6 @@ int redirect_output(char *output_stream) {
     free(output_stream);
     return 0;
 }
-
-/* char ***divide_args(char **commands) {
-    char ***args_list = malloc(2 * sizeof(char **));
-    int index = 0;
-    while (!strcmp(commands[index], "|")) {
-        args_list[0] = realloc(args_list, (index + 1) * sizeof(char *));
-        args_list[0][index] = commands[index];
-        index++;
-    }
-    free(command)
-    args_list[0] = realloc(args_list, (index + 1) * sizeof(char *));
-    args_list[0][index] = NULL;
-    index++;
-    while (commands[index] != NULL) {
-        args_list[1] = realloc(args_list, (index + 1) * sizeof(char *));
-        args_list[1][index] = commands[index];
-        index++;
-    }
-    args_list[1] = realloc(args_list, (index + 1) * sizeof(char *));
-    args_list[1][index] = NULL;
-    free(commands);
-    return args_list;
-} */
 
 int execute(char **command, char *input_stream, char *output_stream) {
     pid_t pid;
