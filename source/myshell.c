@@ -7,14 +7,19 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+char skip_spaces(char cur_symbol) {
+    while (cur_symbol == ' ' || cur_symbol == '\t') {
+        cur_symbol = getchar();
+    }
+    return cur_symbol;
+}
+
 char *get_word(char *end) {
     char *word_ptr = NULL;
     char symbol;
     int len = 0;
     symbol = getchar();
-    while (symbol == ' ' || symbol == '\t') {
-        symbol = getchar();
-    }
+    symbol = skip_spaces(symbol);
     while (symbol != ' ' && symbol != '\t' && symbol != '\n') {
         word_ptr = realloc(word_ptr, (len + 1) * sizeof(char));
         word_ptr[len] = symbol;
