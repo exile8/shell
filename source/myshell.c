@@ -146,7 +146,7 @@ int redirect_output(int fd) {
 }
 
 int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
-    int fd[pipe_num][2];
+    int fd[pipe_num + 2][2];
     int i;
     pid_t pid;
 
@@ -232,6 +232,10 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             }
             if (close(fd[i - 1][0]) < 0) {
                 close(fd[i - 1][1]);
+                perror("close");
+                return 1;
+            }
+            if (close(fd[i - 1][0]) < 0) {
                 perror("close");
                 return 1;
             }
