@@ -235,10 +235,6 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
                 perror("close");
                 return 1;
             }
-            if (close(fd[i - 1][0]) < 0) {
-                perror("close");
-                return 1;
-            }
             
             if (dup2(fd[i][1], STDOUT_FILENO) < 0) {
                 perror("dup2");
