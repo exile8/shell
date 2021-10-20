@@ -146,7 +146,7 @@ int redirect_output(int fd) {
 }
 
 int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
-    int fd[pipe_num + 2][2];
+    int fd[pipe_num][2];
     int i;
     pid_t pid;
 
