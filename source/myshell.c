@@ -111,11 +111,9 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd) {
     }
     if (input_fd < 0 || output_fd < 0) {
         perror("open");
-        list = remove_list(list);
     }
     if (wrong_input) {
         puts("Wrong input");
-        list = remove_list(list);
     }
     return list;
 }
@@ -308,9 +306,6 @@ int main() {
     int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, pipes = 0;
     char ***command = get_list(&pipes);
     command = prepare_list(command, &input_fd, &output_fd);
-    if (command == NULL) {
-        exit(1);
-    }
     while (1) {
         if (!strcmp(command[0][0], "exit") || !strcmp(command[0][0], "quit")) {
             command = remove_list(command);
@@ -325,8 +320,5 @@ int main() {
         pipes = 0;
         command = get_list(&pipes);
         command = prepare_list(command, &input_fd, &output_fd);
-        if (command == NULL) {
-            exit(1);
-        }
     }
 }
