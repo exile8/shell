@@ -81,39 +81,31 @@ char ***remove_list(char ***list) {
     return NULL;
 }
 
-char ***prepare_list(char ***list, int *input_fd, int *output_fd) {
-    int wrong_input = 0;
-    for (int i = 0; list[i]; i++) {
-        for (int j = 1; list[i][j]; j++) {
-            if (list[i][j - 1] != NULL && !strcmp(list[i][j - 1], "<")) {
-                if (list[i][j + 1] != NULL && strcmp(list[i][j + 1], ">")) {
-                    wrong_input = 1;
-                    break;
-                }
-                *input_fd = open(list[i][j], O_RDONLY);
-                free(list[i][j - 1]);
-                list[i][j - 1] = NULL;
-                free(list[i][j]);
-                list[i][j] = NULL;
-            }
-            if (list[i][j - 1] != NULL && !strcmp(list[i][j - 1], ">")) {
-                if (list[i][j + 1] != NULL && strcmp(list[i][j + 1], "<")) {
-                    wrong_input = 1;
-                    break;
-                }
-                *output_fd = open(list[i][j], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-                free(list[i][j - 1]);
-                list[i][j - 1] = NULL;
-                free(list[i][j]);
-                list[i][j] = NULL;
-            }
+char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) {
+    int input_index = 0, output_index = 0;
+    for (int i = 0; list[0][i]; i++) {
+        if (!strcmp(list[0][i], "<")) {
+            *input_fd = open(list[0][i + 1], O_RDONLY);
+            input_index = i;
         }
     }
-    if (input_fd < 0 || output_fd < 0) {
-        perror("open");
+    for (int i = 0; list[pipe_num][i]; i++) {
+        if (!strcmp(list[pipe_num][i], ">")) {
+            *output_fd = open(list[pipe_num][i + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+            output_index = i;
+        }
     }
-    if (wrong_input) {
-        puts("Wrong input");
+    if (input_index != 0) {
+        for (int i = input_index; list[0][i]; i++) {
+            free(list[0][i]);
+            list[0][i] = NULL;
+        }
+    }
+    if (output_index != 0) {
+        for (int i = output_index; list[pipe_num][i]; i++) {
+            free(list[pipe_num][i]);
+            list[0][i] = NULL;
+        }
     }
     return list;
 }
@@ -305,7 +297,7 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
 int main() {
     int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, pipes = 0;
     char ***command = get_list(&pipes);
-    command = prepare_list(command, &input_fd, &output_fd);
+    command = prepare_list(command, &input_fd, &output_fd, pipes);
     while (1) {
         if (!strcmp(command[0][0], "exit") || !strcmp(command[0][0], "quit")) {
             command = remove_list(command);
@@ -319,6 +311,6 @@ int main() {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         pipes = 0;
         command = get_list(&pipes);
-        command = prepare_list(command, &input_fd, &output_fd);
+        command = prepare_list(command, &input_fd, &output_fd, pipes);
     }
 }
