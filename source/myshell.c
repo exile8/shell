@@ -183,7 +183,7 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
         if (pid == 1) {
             return 1;
         }
-        if (fd[i][1] != output_fd) {
+        if (fd[i][1] != STDOUT_FILENO) {
             if (close(fd[i][1]) < 0) {
                 perror("close");
                 return 1;
