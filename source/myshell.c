@@ -104,7 +104,7 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) 
     if (output_index != 0) {
         for (int i = output_index; list[pipe_num][i]; i++) {
             free(list[pipe_num][i]);
-            list[0][i] = NULL;
+            list[pipe_num][i] = NULL;
         }
     }
     return list;
@@ -177,6 +177,10 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             fd[i - 1][0] = input_fd;
         }
         if (i == pipe_num + 1) {
+            if (close(fd[i][1]) < 0) {
+                perror("close");
+                return 1;
+            }
             fd[pipe_num + 1][1] = output_fd;
         }
         pid = exec_cmd(cmd[i - 1], fd[i - 1][0], fd[i][1], fd[i][0]);
