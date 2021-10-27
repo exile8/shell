@@ -70,7 +70,7 @@ char ***get_list(int *pipe_num) {
     return list;
 }
 
-char ***remove_list(char ***list) {
+void remove_list(char ***list) {
     for (int i = 0; list[i]; i++) {
         for (int j = 0; list[i][j]; j++) {
             free(list[i][j]);
@@ -78,34 +78,47 @@ char ***remove_list(char ***list) {
         free(list[i]);
     }
     free(list);
-    return NULL;
+}
+
+int get_input_fd(char **cmd, int *input_pos) {
+    int fd_input = 0;
+    for (int i = 1; cmd[i]; i++) {
+        if (!strcmp(cmd[i - 1], "<")) {
+            *input_pos = i - 1;
+            fd_input = open(cmd[i], O_RDONLY);
+        }
+    }
+    return fd_input;
+}
+
+int get_output_fd(char **cmd, int *output_pos) {
+    int fd_output = 1;
+    for (int i = 1; cmd[i]; i++) {
+        if (!strcmp(cmd[i - 1], ">")) {
+            *output_pos = i - 1;
+            fd_output = open(cmd[i], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+        }
+    }
+    return fd_output;
+}
+
+char **cut_args(char **cmd, int cut_pos) {
+    for (int i = cut_pos; cmd[i]; i++) {
+        free(cmd[i]);
+        cmd[i] = NULL;
+    }
+    return cmd;
 }
 
 char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) {
     int input_index = 0, output_index = 0;
-    for (int i = 0; list[0][i]; i++) {
-        if (!strcmp(list[0][i], "<")) {
-            *input_fd = open(list[0][i + 1], O_RDONLY);
-            input_index = i;
-        }
-    }
-    for (int i = 0; list[pipe_num][i]; i++) {
-        if (!strcmp(list[pipe_num][i], ">")) {
-            *output_fd = open(list[pipe_num][i + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-            output_index = i;
-        }
-    }
+    *input_fd = get_input_fd(list[0], &input_index);
+    *output_fd = get_output_fd(list[pipe_num], &output_index);
     if (input_index != 0) {
-        for (int i = input_index; list[0][i]; i++) {
-            free(list[0][i]);
-            list[0][i] = NULL;
-        }
+        list[0] = cut_args(list[0], input_index);
     }
     if (output_index != 0) {
-        for (int i = output_index; list[pipe_num][i]; i++) {
-            free(list[pipe_num][i]);
-            list[pipe_num][i] = NULL;
-        }
+        list[pipe_num] = cut_args(list[pipe_num], output_index);
     }
     return list;
 }
@@ -207,14 +220,14 @@ int main() {
     command = prepare_list(command, &input_fd, &output_fd, pipes);
     while (1) {
         if (!strcmp(command[0][0], "exit") || !strcmp(command[0][0], "quit")) {
-            command = remove_list(command);
+            remove_list(command);
             return 0;
         }
         if (execute(command, input_fd, output_fd, pipes) > 0) {
-            command = remove_list(command);
+            remove_list(command);
             exit(1);
         }
-        command = remove_list(command);
+        remove_list(command);
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         pipes = 0;
         command = get_list(&pipes);
