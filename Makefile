@@ -1,2 +1,2 @@
 all:
-	gcc source/myshell.c -o bin/myshell -Wall -Werror -fsanitize=leak,address -g
+	gcc source/shell.c -o bin/shell -fsanitize=address,leak -Wall -Werror -g
