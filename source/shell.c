@@ -123,32 +123,26 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) 
     return list;
 }
 
-int redirect_input(int fd) {
-    if (fd == STDIN_FILENO) {
-        return 0;
+int redirect_io(int input_fd, int output_fd) {
+    if (input_fd != STDIN_FILENO) {
+        if (dup2(input_fd, STDIN_FILENO) < 0) {
+            perror("dup2");
+            return 1;
+        }
+        if (close(input_fd) < 0) {
+            perror("close");
+            return 1;
+        }
     }
-    if (dup2(fd, STDIN_FILENO) < 0) {
-        perror("dup2");
-        return 1;
-    }
-    if (close(fd) < 0) {
-        perror("close");
-        return 1;
-    }
-    return 0;
-}
-
-int redirect_output(int fd) {
-    if (fd == STDOUT_FILENO) {
-        return 0;
-    }
-    if (dup2(fd, STDOUT_FILENO) < 0) {
-        perror("dup2");
-        return 1;
-    }
-    if (close(fd) < 0) {
-        perror("close");
-        return 1;
+    if (output_fd != STDOUT_FILENO) {
+        if (dup2(output_fd, STDOUT_FILENO) < 0) {
+            perror("dup2");
+            return 1;
+        }
+        if (close(output_fd) < 0) {
+            perror("close");
+            return 1;
+        }
     }
     return 0;
 }
@@ -160,14 +154,7 @@ pid_t exec_cmd(char **cmd, int input_pipe[], int output_pipe[]) {
         return 1;
     }
     if (pid == 0) {
-        if (redirect_input(input_pipe[0]) > 0) {
-            return 1;
-        }
-        if (redirect_output(output_pipe[1]) > 0) {
-            return 1;
-        }
-        if (close(output_pipe[0]) < 0) {
-            perror("close");
+        if (redirect_io(input_pipe[0], output_pipe[1]) > 0) {
             return 1;
         }
         execvp(cmd[0], cmd);
