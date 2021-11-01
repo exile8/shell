@@ -157,6 +157,10 @@ pid_t exec_cmd(char **cmd, int input_pipe[], int output_pipe[]) {
         if (redirect_io(input_pipe[0], output_pipe[1]) > 0) {
             return 1;
         }
+        if (close(output_pipe[0]) > 0) {
+            perror("close");
+            return 1;
+        }
         execvp(cmd[0], cmd);
         perror("exec");
         return 1;
