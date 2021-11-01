@@ -153,20 +153,20 @@ int redirect_output(int fd) {
     return 0;
 }
 
-pid_t exec_cmd(char **cmd, int fd_input, int fd_output, int pipe_fd) {
+pid_t exec_cmd(char **cmd, int input_pipe[], int output_pipe[]) {
     pid_t pid;
     if ((pid = fork()) < 0) {
         perror("fork");
         return 1;
     }
     if (pid == 0) {
-        if (redirect_input(fd_input) > 0) {
+        if (redirect_input(input_pipe[0]) > 0) {
             return 1;
         }
-        if (redirect_output(fd_output) > 0) {
+        if (redirect_output(output_pipe[1]) > 0) {
             return 1;
         }
-        if (close(pipe_fd) < 0) {
+        if (close(output_pipe[0]) < 0) {
             perror("close");
             return 1;
         }
@@ -196,7 +196,7 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             }
             fd[pipe_num + 1][1] = output_fd;
         }
-        pid = exec_cmd(cmd[i - 1], fd[i - 1][0], fd[i][1], fd[i][0]);
+        pid = exec_cmd(cmd[i - 1], fd[i - 1], fd[i]);
         if (pid == 1) {
             return 1;
         }
