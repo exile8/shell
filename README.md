@@ -18,7 +18,7 @@ make
 
 * Выполнение команд linux без аргументов
 
-![][examples/single_wrd_command.png]
+![example1][examples/single_wrd_command.png]
 
 * Выполнение команд linux c аргументами
 
