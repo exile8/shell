@@ -206,22 +206,22 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
 }
 
 int main() {
-    int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, pipes = 0;
-    char ***command = get_list(&pipes);
-    command = prepare_list(command, &input_fd, &output_fd, pipes);
+    int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, num_pipes = 0;
+    char ***command = get_list(&num_pipes);
+    command = prepare_list(command, &input_fd, &output_fd, num_pipes);
     while (1) {
         if (!strcmp(command[0][0], "exit") || !strcmp(command[0][0], "quit")) {
             remove_list(command);
             return 0;
         }
-        if (execute(command, input_fd, output_fd, pipes) > 0) {
+        if (execute(command, input_fd, output_fd, num_pipes) > 0) {
             remove_list(command);
             exit(1);
         }
         remove_list(command);
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
-        pipes = 0;
-        command = get_list(&pipes);
-        command = prepare_list(command, &input_fd, &output_fd, pipes);
+        num_pipes = 0;
+        command = get_list(&num_pipes);
+        command = prepare_list(command, &input_fd, &output_fd, num_pipes);
     }
 }
