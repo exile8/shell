@@ -216,9 +216,11 @@ int is_exit(char *first_arg) {
 int main() {
     int input_fd, output_fd, num_pipes;
     char ***command;
+    const char *prompt = "$ ";
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
+        fputs(prompt, stdout);
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0][0])) {
