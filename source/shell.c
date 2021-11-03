@@ -205,8 +205,8 @@ int pipe_exec(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     return 0;
 }
 
-int is_exit(char **cmd) {
-    if (!strcmp(cmd[0], "exit") || !strcmp(cmd[0], "quit")) {
+int is_exit(char *first_arg) {
+    if (!strcmp(first_arg, "exit") || !strcmp(first_arg, "quit")) {
         return 1;
     } else {
         return 0;
@@ -221,7 +221,7 @@ int main() {
         num_pipes = 0;
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
-        if (is_exit(command[0])) {
+        if (is_exit(command[0][0])) {
             remove_list(command);
             return 0;
         }
