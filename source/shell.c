@@ -147,7 +147,7 @@ int redirect_io(int input_fd, int output_fd) {
     return 0;
 }
 
-pid_t exec_cmd(char **cmd, int input_pipe[], int output_pipe[]) {
+pid_t exec_redir(char **cmd, int input_pipe[], int output_pipe[]) {
     pid_t pid;
     if ((pid = fork()) < 0) {
         perror("fork");
@@ -168,7 +168,7 @@ pid_t exec_cmd(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
+int pipe_exec(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num + 2][2];
     pid_t pid;
 
@@ -187,7 +187,7 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             }
             fd[pipe_num + 1][1] = output_fd;
         }
-        pid = exec_cmd(cmd[i - 1], fd[i - 1], fd[i]);
+        pid = exec_redir(cmd[i - 1], fd[i - 1], fd[i]);
         if (pid == 1) {
             return 1;
         }
@@ -207,9 +207,10 @@ int execute(char ***cmd, int input_fd, int output_fd, int pipe_num) {
 
 int main() {
     int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, num_pipes = 0;
-    char ***command = get_list(&num_pipes);
-    command = prepare_list(command, &input_fd, &output_fd, num_pipes);
+    char ***command;
     while (1) {
+        command = get_list(&num_pipes);
+        command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (!strcmp(command[0][0], "exit") || !strcmp(command[0][0], "quit")) {
             remove_list(command);
             return 0;
@@ -221,7 +222,5 @@ int main() {
         remove_list(command);
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        command = get_list(&num_pipes);
-        command = prepare_list(command, &input_fd, &output_fd, num_pipes);
     }
 }
