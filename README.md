@@ -18,15 +18,9 @@ make
 
 * Выполнение команд linux без аргументов
 
-![example1](examples/single_wrd_command.png)
-
 * Выполнение команд linux c аргументами
 
-![example2](examples/cmd_with_args.png)
-
 * Перенаправление ввода
-
-![example3](examples/input_redir.png)
 
 * Перенаправление вывода
 
