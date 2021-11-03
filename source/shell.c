@@ -214,9 +214,11 @@ int is_exit(char **cmd) {
 }
 
 int main() {
-    int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO, num_pipes = 0;
+    int input_fd, output_fd, num_pipes;
     char ***command;
     while (1) {
+        input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
+        num_pipes = 0;
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0])) {
@@ -228,7 +230,5 @@ int main() {
             exit(1);
         }
         remove_list(command);
-        input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
-        num_pipes = 0;
     }
 }
