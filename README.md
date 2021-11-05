@@ -25,17 +25,71 @@ $ pwd
 
 * Выполнение команд linux c аргументами
 
+```sh
+$ ls -l -a
+total 28
+drwxrwxr-x  5 user user 4096 Nov  5 16:13 .
+drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
+drwxrwxr-x  2 user user 4096 Nov  5 16:13 bin
+drwxrwxr-x  8 user user 4096 Nov  5 16:12 .git
+-rw-rw-r--  1 user user   90 Nov  3 07:26 Makefile
+-rw-rw-r--  1 user user 1274 Nov  5 16:12 README.md
+drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
+```
+
 * Перенаправление ввода
+
+```sh
+$ cat input.txt
+First line
+Second line
+Third line
+$ wc -l < input.txt
+3
+```
 
 * Перенаправление вывода
 
+```sh
+$ ls -a > output.txt
+$ cat output.txt
+.
+..
+bin
+.git
+Makefile
+output.txt
+README.md
+source
+```
+
 * Одновременное перенаправление ввода и вывода
 
+```sh
+$ cat input.txt
+some input info
+for wc command
+$ wc -c < input.txt > output.txt
+$ cat output.txt
+31
+```
+
 * Конвейер
+
+```sh
+```
 
 * Конвейер с перенаправлением ввода и вывода в файлы
 
 * Выход из программы
+
+```sh
+$ exit
+```
+
+```sh
+$ quit
+```
 
 ## История версий
 * 1.0
