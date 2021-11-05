@@ -147,7 +147,7 @@ int redirect_io(int input_fd, int output_fd) {
     return 0;
 }
 
-pid_t exec_redir(char **cmd, int input_pipe[], int output_pipe[]) {
+pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     pid_t pid;
     if ((pid = fork()) < 0) {
         perror("fork");
@@ -168,7 +168,7 @@ pid_t exec_redir(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-int pipe_exec(char ***cmd, int input_fd, int output_fd, int pipe_num) {
+int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num + 2][2];
     pid_t pid;
 
