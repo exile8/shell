@@ -187,7 +187,7 @@ int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             }
             fd[pipe_num + 1][1] = output_fd;
         }
-        pid = exec_redir(cmd[i - 1], fd[i - 1], fd[i]);
+        pid = exec_with_redirect(cmd[i - 1], fd[i - 1], fd[i]);
         if (pid == 1) {
             return 1;
         }
@@ -227,7 +227,7 @@ int main() {
             remove_list(command);
             return 0;
         }
-        if (pipe_exec(command, input_fd, output_fd, num_pipes) > 0) {
+        if (exec_pipeline(command, input_fd, output_fd, num_pipes) > 0) {
             remove_list(command);
             exit(1);
         }
