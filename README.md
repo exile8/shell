@@ -18,14 +18,14 @@ make
 
 * Выполнение команд linux без аргументов
 
-```sh
+```
 $ pwd
 /home/user/shell
 ```
 
 * Выполнение команд linux c аргументами
 
-```sh
+```
 $ ls -l -a
 total 28
 drwxrwxr-x  5 user user 4096 Nov  5 16:13 .
@@ -39,7 +39,7 @@ drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
 
 * Перенаправление ввода
 
-```sh
+```
 $ cat input.txt
 First line
 Second line
@@ -50,7 +50,7 @@ $ wc -l < input.txt
 
 * Перенаправление вывода
 
-```sh
+```
 $ ls -a > output.txt
 $ cat output.txt
 .
@@ -65,7 +65,7 @@ source
 
 * Одновременное перенаправление ввода и вывода
 
-```sh
+```
 $ cat input.txt
 some input info
 for wc command
@@ -76,18 +76,18 @@ $ cat output.txt
 
 * Конвейер
 
-```sh
+```
 ```
 
 * Конвейер с перенаправлением ввода и вывода в файлы
 
 * Выход из программы
 
-```sh
+```
 $ exit
 ```
 
-```sh
+```
 $ quit
 ```
 
