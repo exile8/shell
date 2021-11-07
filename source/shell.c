@@ -208,11 +208,7 @@ int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
 }
 
 int is_exit(char *first_arg) {
-    if (!strcmp(first_arg, "exit") || !strcmp(first_arg, "quit")) {
-        return 1;
-    } else {
-        return 0;
-    }
+    return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
 int main() {
