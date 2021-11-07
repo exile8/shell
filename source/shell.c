@@ -40,14 +40,11 @@ char **get_args(char *end_fl) {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
         arg_ptr[len] = get_word(&last_symb);
         if (!strcmp(arg_ptr[len], "|")) {
-            break;
+            free(arg_ptr[len]);
+            arg_ptr[len] = NULL;
+            return arg_ptr;
         }
         len++;
-    }
-    if (last_symb != '\n') {
-        free(arg_ptr[len]);
-        arg_ptr[len] = NULL;
-        return arg_ptr;
     }
     arg_ptr = realloc(arg_ptr, (len + 1) * sizeof (char *));
     *end_fl = 1;
