@@ -37,6 +37,20 @@ drwxrwxr-x  8 user user 4096 Nov  5 16:12 .git
 drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
 ```
 
+* Пробелы и табуляции до, между и после аргументов игнорируются
+
+```
+$    ls    -l  -a      
+total 28
+drwxrwxr-x  5 user user 4096 Nov  5 16:13 .
+drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
+drwxrwxr-x  2 user user 4096 Nov  5 16:13 bin
+drwxrwxr-x  8 user user 4096 Nov  5 16:12 .git
+-rw-rw-r--  1 user user   90 Nov  3 07:26 Makefile
+-rw-rw-r--  1 user user 1274 Nov  5 16:12 README.md
+drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
+```
+
 * Перенаправление ввода
 
 ```
@@ -77,6 +91,11 @@ $ cat output.txt
 * Конвейер
 
 ```
+$ ls | sort
+bin
+Makefile
+README.md
+source
 ```
 
 * Конвейер с перенаправлением ввода и вывода в файлы
