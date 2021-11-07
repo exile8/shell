@@ -159,7 +159,7 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
         if (redirect_io(input_pipe[0], output_pipe[1]) > 0) {
             return 1;
         }
-        if (close(output_pipe[0]) > 0) {
+        if (output_pipe[0] > 0 && close(output_pipe[0]) > 0) {
             perror("close");
             return 1;
         }
@@ -174,20 +174,13 @@ int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num + 2][2];
     pid_t pid;
 
+    fd[0][0] = input_fd;
+    fd[pipe_num + 1][0] = -1;
+    fd[pipe_num + 1][1] = output_fd;
     for (int i = 1; i < pipe_num + 2; i++) {
-        if (pipe(fd[i]) < 0) {
+        if (i != pipe_num + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
             return 1;
-        }
-        if (i == 1) {
-            fd[i - 1][0] = input_fd;
-        }
-        if (i == pipe_num + 1) {
-            if (close(fd[i][1]) < 0) {
-                perror("close");
-                return 1;
-            }
-            fd[pipe_num + 1][1] = output_fd;
         }
         pid = exec_with_redirect(cmd[i - 1], fd[i - 1], fd[i]);
         if (pid == 1) {
