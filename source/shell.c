@@ -46,7 +46,12 @@ char **get_args(char *end_fl) {
         }
         len++;
     }
-    arg_ptr = realloc(arg_ptr, (len + 1) * sizeof (char *));
+    if (arg_ptr[len - 1][0] == '\0') {
+        free(arg_ptr[len - 1]);
+        len--;
+    } else {
+        arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
+    }
     *end_fl = 1;
     arg_ptr[len] = NULL;
     return arg_ptr;
