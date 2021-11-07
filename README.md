@@ -100,6 +100,22 @@ source
 
 * Конвейер с перенаправлением ввода и вывода в файлы
 
+```
+$ cat input.txt
+./
+$ ls -a < input.txt | rev | sort > output.txt
+$ cat output.txt
+.
+..
+dm.EMDAER
+ecruos
+elifekaM
+nib
+tig.
+txt.tupni
+txt.tuptuo
+```
+
 * Выход из программы
 
 ```
