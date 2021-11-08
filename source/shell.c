@@ -105,21 +105,25 @@ int get_output_fd(char **cmd, int *output_pos) {
 }
 
 char **cut_args(char **cmd, int cut_pos) {
-    for (int i = cut_pos; cmd[i]; i++) {
-        free(cmd[i]);
-        cmd[i] = NULL;
+    int i;
+    free(cmd[cut_pos]);
+    free(cmd[cut_pos + 1]);
+    for (i = cut_pos; cmd[i + 2]; i++) {
+        cmd[i] = cmd[i + 2];
     }
+    cmd[i] = NULL;
+    cmd[i + 1] = NULL;
     return cmd;
 }
 
 char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) {
-    int input_index = 0, output_index = 0;
+    int input_index = -1, output_index = -1;
     *input_fd = get_input_fd(list[0], &input_index);
-    *output_fd = get_output_fd(list[pipe_num], &output_index);
-    if (input_index != 0) {
+    if (input_index != -1) {
         list[0] = cut_args(list[0], input_index);
     }
-    if (output_index != 0) {
+    *output_fd = get_output_fd(list[pipe_num], &output_index);
+    if (output_index != -1) {
         list[pipe_num] = cut_args(list[pipe_num], output_index);
     }
     return list;
