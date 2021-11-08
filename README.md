@@ -116,6 +116,25 @@ txt.tupni
 txt.tuptuo
 ```
 
+* **> filename** и **< filename** могут располагаться в любой части строки ввода
+
+```
+$ cat input.txt
+./
+$ < input.txt ls -a > output.txt -l
+$ cat output.txt
+total 32
+drwxrwxr-x  5 user user 4096 Nov  8 17:09 .
+drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
+drwxrwxr-x  2 user user 4096 Nov  8 16:55 bin
+drwxrwxr-x  8 user user 4096 Nov  8 16:57 .git
+-rw-------  1 user user    3 Nov  8 16:40 input.txt
+-rw-rw-r--  1 user user   90 Nov  3 07:26 Makefile
+-rw-------  1 user user    0 Nov  8 17:09 output.txt
+-rw-rw-r--  1 user user 2814 Nov  8 17:08 README.md
+drwxrwxr-x  2 user user 4096 Nov  8 17:06 source
+```
+
 * Выход из программы
 
 ```
