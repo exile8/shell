@@ -153,6 +153,27 @@ int redirect_io(int input_fd, int output_fd) {
     return 0;
 }
 
+int change_directory(char **cmd, const char *home) {
+    if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
+        if (chdir(home) < 0) {
+            perror("chdir");
+        }
+        //if (setenv("PWD", home, 1) < 0) {
+          //  perror("setenv");
+           // return 1;
+        //}
+    } else {
+        if (chdir(cmd[1]) < 0) {
+            perror("chdir");
+        }
+        //if (setenv("PWD", cmd[1], 1) < 0) {
+          //  perror("setenv");
+            //return 1;
+        //}
+    }
+    return 0;
+}
+
 pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     pid_t pid;
     if ((pid = fork()) < 0) {
@@ -174,10 +195,9 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
+int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num + 2][2];
     pid_t pid;
-
     fd[0][0] = input_fd;
     fd[pipe_num + 1][0] = -1;
     fd[pipe_num + 1][1] = output_fd;
@@ -186,7 +206,7 @@ int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
             perror("pipe");
             return 1;
         }
-        pid = exec_with_redirect(cmd[i - 1], fd[i - 1], fd[i]);
+        pid = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
         if (pid == 1) {
             return 1;
         }
@@ -204,25 +224,42 @@ int exec_pipeline(char ***cmd, int input_fd, int output_fd, int pipe_num) {
     return 0;
 }
 
+int exec(char ***cmd_list, int input_fd, int output_fd, int pipe_num, const char *home) {
+    if (!strcmp(cmd_list[0][0], "cd")) {
+        if (pipe_num == 0) {
+            return change_directory(cmd_list[0], home);
+        } else {
+            return exec_pipeline(cmd_list[0], input_fd, output_fd, pipe_num);
+        }
+    }
+    return exec_pipeline(cmd_list, input_fd, output_fd, pipe_num);
+}
+
 int is_exit(char *first_arg) {
     return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
-int main() {
+void print_prompt(char **prompt_line) {
+    printf("%s:%s$ ", prompt_line[0], prompt_line[1]);
+}
+
+int main(int argc, char **argv, char **envp) {
     int input_fd, output_fd, num_pipes;
+    char *prompt[] = {getenv("USER"), NULL};
+    const char *home_dir = getenv("HOME");
     char ***command;
-    const char *prompt = "$ ";
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        fputs(prompt, stdout);
+        prompt[1] = getenv("PWD");
+        print_prompt(prompt);
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0][0])) {
             remove_list(command);
             return 0;
         }
-        if (exec_pipeline(command, input_fd, output_fd, num_pipes) > 0) {
+        if (exec(command, input_fd, output_fd, num_pipes, home_dir) > 0) {
             remove_list(command);
             exit(1);
         }
