@@ -19,14 +19,14 @@ make
 * Выполнение команд linux без аргументов
 
 ```
-$ pwd
+user:/home/user/shell$ pwd
 /home/user/shell
 ```
 
 * Выполнение команд linux c аргументами
 
 ```
-$ ls -l -a
+user:/home/user/shell$ ls -l -a
 total 28
 drwxrwxr-x  5 user user 4096 Nov  5 16:13 .
 drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
@@ -40,7 +40,7 @@ drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
 * Пробелы и табуляции до, между и после аргументов игнорируются
 
 ```
-$    ls    -l  -a      
+user:/home/user/shell$    ls    -l  -a      
 total 28
 drwxrwxr-x  5 user user 4096 Nov  5 16:13 .
 drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
@@ -54,7 +54,7 @@ drwxrwxr-x  2 user user 4096 Nov  5 16:13 source
 * Перенаправление ввода
 
 ```
-$ cat input.txt
+user:/home/user/shell$ cat input.txt
 First line
 Second line
 Third line
@@ -65,8 +65,8 @@ $ wc -l < input.txt
 * Перенаправление вывода
 
 ```
-$ ls -a > output.txt
-$ cat output.txt
+user:/home/user/shell$ ls -a > output.txt
+user:/home/user/shell$ cat output.txt
 .
 ..
 bin
@@ -80,18 +80,18 @@ source
 * Одновременное перенаправление ввода и вывода
 
 ```
-$ cat input.txt
+user:/home/user/shell$ cat input.txt
 some input info
 for wc command
-$ wc -c < input.txt > output.txt
-$ cat output.txt
+user:/home/user/shell$ wc -c < input.txt > output.txt
+user:/home/user/shell$ cat output.txt
 31
 ```
 
 * Конвейер
 
 ```
-$ ls | sort
+user:/home/user/shell$ ls | sort
 bin
 Makefile
 README.md
@@ -101,10 +101,10 @@ source
 * Конвейер с перенаправлением ввода и вывода в файлы
 
 ```
-$ cat input.txt
+user:/home/user/shell$ cat input.txt
 ./
-$ ls -a < input.txt | rev | sort > output.txt
-$ cat output.txt
+user:/home/user/shell$ ls -a < input.txt | rev | sort > output.txt
+user:/home/user/shell$ cat output.txt
 .
 ..
 dm.EMDAER
@@ -119,10 +119,10 @@ txt.tuptuo
 * **> filename** и **< filename** могут располагаться в любой части строки ввода
 
 ```
-$ cat input.txt
+user:/home/user/shell$ cat input.txt
 ./
-$ < input.txt ls -a > output.txt -l
-$ cat output.txt
+user:/home/user/shell$ < input.txt ls -a > output.txt -l
+user:/home/user/shell$ cat output.txt
 total 32
 drwxrwxr-x  5 user user 4096 Nov  8 17:09 .
 drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
@@ -135,14 +135,27 @@ drwxrwxr-x  8 user user 4096 Nov  8 16:57 .git
 drwxrwxr-x  2 user user 4096 Nov  8 17:06 source
 ```
 
+* Смена директории
+
+```
+user:/home/user/shell$ cd bin
+user:/home/user/shell/bin$ cd
+user:/home/user$ cd -
+/home/user/shell/bin
+user:/home/user/shell/bin cd ..
+user:/home/user/shell$ cd /
+user:/$ cd ~
+user:/home/user$
+```
+
 * Выход из программы
 
 ```
-$ exit
+user:/home/user/shell$ exit
 ```
 
 ```
-$ quit
+user:/home/user/shell$ quit
 ```
 
 ## История версий
@@ -156,3 +169,5 @@ $ quit
     * Конвейер из двух программ
 * 5.0
     * Конвейер из n программ
+* 6.0
+    * Смена директории cd
