@@ -156,14 +156,20 @@ int redirect_io(int input_fd, int output_fd) {
     return 0;
 }
 
-void change_directory(char **cmd, const char *home) {
+void change_directory(char **cmd, char *cur_dir) {
+    char *new_dir = NULL;
     if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
-        if (chdir(home) < 0) {
-            perror("chdir");
-        }
-        if (setenv("PWD", home, 1) < 0) {
-            perror("setenv");
-        }
+        new_dir = getenv("HOME");
+    } else if (!strcmp(cmd[1], "-")) {  
+        new_dir = getenv("OLDPWD");
+    } else {
+        new_dir = cmd[1];
+    }
+    if (chdir(new_dir) < 0) {
+        perror("chdir");
+    }
+    if (setenv("OLDPWD", cur_dir, 1) < 0) {
+        perror("setenv");
     }
 }
 
@@ -217,12 +223,12 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int pipe_num, const char *home) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int pipe_num, char *cur_dir) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
     if (!strcmp(cmd_list[0][0], "cd") && pipe_num == 0) {
-        change_directory(cmd_list[0], home);
+        change_directory(cmd_list[0], cur_dir);
         return 0;
     }
     return exec_pipeline(cmd_list, input_fd, output_fd, pipe_num);
@@ -241,13 +247,14 @@ void print_prompt(const char *username, char *current_dir) {
 
 int main() {
     int input_fd, output_fd, num_pipes;
-    const char *home_dir = getenv("HOME"), *user = getenv("USER");
-    char *cur_dir;
+    const int MAX_PATH = 256;
+    const char *user = getenv("USER");
+    char cur_dir[MAX_PATH];
     char ***command;
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        cur_dir = getenv("PWD");
+        getcwd(cur_dir, MAX_PATH);
         print_prompt(user, cur_dir);
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
@@ -255,7 +262,7 @@ int main() {
             remove_list(command);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, home_dir) > 0) {
+        if (exec(command, input_fd, output_fd, num_pipes, cur_dir) > 0) {
             remove_list(command);
             exit(1);
         }
