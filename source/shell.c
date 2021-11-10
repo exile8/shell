@@ -162,6 +162,9 @@ void change_directory(char **cmd, char *cur_dir) {
         new_dir = getenv("HOME");
     } else if (!strcmp(cmd[1], "-")) {  
         new_dir = getenv("OLDPWD");
+        if (new_dir != NULL) {
+            puts(new_dir);
+        }
     } else {
         new_dir = cmd[1];
     }
@@ -241,28 +244,29 @@ int is_exit(char *first_arg) {
     return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
-void print_prompt(const char *username, char *current_dir) {
-    printf("%s:%s$ ", username, current_dir);
+void print_prompt(const char *username, char *cur_dir) {
+    printf("%s:%s$ ", username, cur_dir);
 }
 
 int main() {
     int input_fd, output_fd, num_pipes;
     const int MAX_PATH = 256;
     const char *user = getenv("USER");
-    char cur_dir[MAX_PATH];
+    char current_dir[MAX_PATH];
     char ***command;
+    unsetenv("OLDPWD");
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        getcwd(cur_dir, MAX_PATH);
-        print_prompt(user, cur_dir);
+        getcwd(current_dir, MAX_PATH);
+        print_prompt(user, current_dir);
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0][0])) {
             remove_list(command);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, cur_dir) > 0) {
+        if (exec(command, input_fd, output_fd, num_pipes, current_dir) > 0) {
             remove_list(command);
             exit(1);
         }
