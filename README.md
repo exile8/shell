@@ -58,7 +58,7 @@ user:/home/user/shell$ cat input.txt
 First line
 Second line
 Third line
-$ wc -l < input.txt
+user:/home/user/shell$ wc -l < input.txt
 3
 ```
 
