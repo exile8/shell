@@ -132,6 +132,26 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) 
     return list;
 }
 
+void change_directory(char **cmd, char *cur_dir) {
+    char *new_dir = NULL;
+    if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
+        new_dir = getenv("HOME");
+    } else if (!strcmp(cmd[1], "-")) {  
+        new_dir = getenv("OLDPWD");
+        if (new_dir != NULL) {
+            puts(new_dir);
+        }
+    } else {
+        new_dir = cmd[1];
+    }
+    if (chdir(new_dir) < 0) {
+        perror("chdir");
+    }
+    if (setenv("OLDPWD", cur_dir, 1) < 0) {
+        perror("setenv");
+    }
+}
+
 int redirect_io(int input_fd, int output_fd) {
     if (input_fd != STDIN_FILENO) {
         if (dup2(input_fd, STDIN_FILENO) < 0) {
@@ -156,26 +176,6 @@ int redirect_io(int input_fd, int output_fd) {
     return 0;
 }
 
-void change_directory(char **cmd, char *cur_dir) {
-    char *new_dir = NULL;
-    if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
-        new_dir = getenv("HOME");
-    } else if (!strcmp(cmd[1], "-")) {  
-        new_dir = getenv("OLDPWD");
-        if (new_dir != NULL) {
-            puts(new_dir);
-        }
-    } else {
-        new_dir = cmd[1];
-    }
-    if (chdir(new_dir) < 0) {
-        perror("chdir");
-    }
-    if (setenv("OLDPWD", cur_dir, 1) < 0) {
-        perror("setenv");
-    }
-}
-
 pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     pid_t pid;
     if ((pid = fork()) < 0) {
@@ -183,15 +183,27 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
         return 1;
     }
     if (pid == 0) {
-        if (redirect_io(input_pipe[0], output_pipe[1]) > 0) {
+        if (input_pipe[1] != -1 && close(input_pipe[1]) < 0) {
+            perror("close");
             return 1;
         }
-        if (output_pipe[0] > 0 && close(output_pipe[0]) > 0) {
+        if (output_pipe[0] != -1 && close(output_pipe[0]) < 0) {
             perror("close");
+            return 1;
+        }
+        if (redirect_io(input_pipe[0], output_pipe[1]) > 0) {
             return 1;
         }
         execvp(cmd[0], cmd);
         perror("exec");
+        return 1;
+    }
+    if (input_pipe[0] != STDIN_FILENO && close(input_pipe[0]) < 0) {
+        perror("close");
+        return 1;
+    }
+    if (input_pipe[1] != -1 && close(input_pipe[1]) < 0) {
+        perror("close");
         return 1;
     }
     return pid;
@@ -199,8 +211,9 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
 
 int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
     int fd[pipe_num + 2][2];
-    pid_t pid;
+    pid_t pids[pipe_num + 1];
     fd[0][0] = input_fd;
+    fd[0][1] = -1;
     fd[pipe_num + 1][0] = -1;
     fd[pipe_num + 1][1] = output_fd;
     for (int i = 1; i < pipe_num + 2; i++) {
@@ -208,17 +221,13 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
             perror("pipe");
             return 1;
         }
-        pid = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
-        if (pid == 1) {
+        pids[i - 1] = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
+        if (pids[i - 1] == 1) {
             return 1;
         }
-        if (fd[i][1] != STDOUT_FILENO) {
-            if (close(fd[i][1]) < 0) {
-                perror("close");
-                return 1;
-            }
-        }
-        if (waitpid(pid, NULL, 0) < 0) {
+    }
+    for (int i = 0; i < pipe_num + 1; i++) {
+        if (waitpid(pids[i], NULL, 0) < 0) {
             perror("waitpid");
             return 1;
         }
