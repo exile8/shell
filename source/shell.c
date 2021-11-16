@@ -57,7 +57,7 @@ char **get_args(char *end_fl) {
     return arg_ptr;
 }
 
-char ***get_list(int *pipe_num) {
+char ***get_list(int *num_pipes) {
     char ***list = NULL;
     char end_flag = 0;
     int len = 0;
@@ -66,7 +66,7 @@ char ***get_list(int *pipe_num) {
         list[len] = get_args(&end_flag);
         len++;
     }
-    *pipe_num = len - 1;
+    *num_pipes = len - 1;
     list = realloc(list, (len + 1) * sizeof(char **));
     list[len] = NULL;
     return list;
@@ -116,7 +116,7 @@ char **cut_args(char **cmd, int cut_pos) {
     return cmd;
 }
 
-char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) {
+char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_pipes) {
     int input_index = -1, output_index = -1;
     if (list[0][0] == NULL) {
         return list;
@@ -125,9 +125,9 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd, int pipe_num) 
     if (input_index != -1) {
         list[0] = cut_args(list[0], input_index);
     }
-    *output_fd = get_output_fd(list[pipe_num], &output_index);
+    *output_fd = get_output_fd(list[num_pipes], &output_index);
     if (output_index != -1) {
-        list[pipe_num] = cut_args(list[pipe_num], output_index);
+        list[num_pipes] = cut_args(list[num_pipes], output_index);
     }
     return list;
 }
@@ -209,15 +209,15 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
-    int fd[pipe_num + 2][2];
-    pid_t pids[pipe_num + 1];
+int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes) {
+    int fd[num_pipes + 2][2];
+    pid_t pids[num_pipes + 1];
     fd[0][0] = input_fd;
     fd[0][1] = -1;
-    fd[pipe_num + 1][0] = -1;
-    fd[pipe_num + 1][1] = output_fd;
-    for (int i = 1; i < pipe_num + 2; i++) {
-        if (i != pipe_num + 1 && pipe(fd[i]) < 0) {
+    fd[num_pipes + 1][0] = -1;
+    fd[num_pipes + 1][1] = output_fd;
+    for (int i = 1; i < num_pipes + 2; i++) {
+        if (i != num_pipes + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
             return 1;
         }
@@ -226,7 +226,7 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
             return 1;
         }
     }
-    for (int i = 0; i < pipe_num + 1; i++) {
+    for (int i = 0; i < num_pipes + 1; i++) {
         if (waitpid(pids[i], NULL, 0) < 0) {
             perror("waitpid");
             return 1;
@@ -235,15 +235,15 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int pipe_num) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int pipe_num, char *cur_dir) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, char *cur_dir) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
-    if (!strcmp(cmd_list[0][0], "cd") && pipe_num == 0) {
+    if (!strcmp(cmd_list[0][0], "cd") && num_pipes == 0) {
         change_directory(cmd_list[0], cur_dir);
         return 0;
     }
-    return exec_pipeline(cmd_list, input_fd, output_fd, pipe_num);
+    return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes);
 }
 
 int is_exit(char *first_arg) {
@@ -261,21 +261,21 @@ int main() {
     int input_fd, output_fd, num_pipes;
     const int MAX_PATH = 256;
     const char *user = getenv("USER");
-    char current_dir[MAX_PATH];
+    char cur_dir[MAX_PATH];
     char ***command;
     unsetenv("OLDPWD");
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        getcwd(current_dir, MAX_PATH);
-        print_prompt(user, current_dir);
+        getcwd(cur_dir, MAX_PATH);
+        print_prompt(user, cur_dir);
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0][0])) {
             remove_list(command);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, current_dir) > 0) {
+        if (exec(command, input_fd, output_fd, num_pipes, cur_dir) > 0) {
             remove_list(command);
             exit(1);
         }
