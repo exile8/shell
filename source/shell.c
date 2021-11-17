@@ -91,6 +91,16 @@ void remove_list(char ***list) {
     free(list);
 }
 
+int set_bg_flag(char **cmd, int *amp_index) {
+    for (int i = 1; cmd[i]; i++) {
+        if (!strcmp(cmd[i], "&") && cmd[i + 1] == NULL) {
+            *amp_index = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int get_input_fd(char **cmd, int *input_pos) {
     int fd_input = 0;
     for (int i = 1; cmd[i]; i++) {
@@ -125,10 +135,15 @@ char **cut_args(char **cmd, int cut_pos) {
     return cmd;
 }
 
-char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_pipes) {
-    int input_index = -1, output_index = -1;
+char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_pipes, int *bg_flag) {
+    int input_index = -1, output_index = -1, amp_index = -1;
     if (list[0][0] == NULL) {
         return list;
+    }
+    *bg_flag = set_bg_flag(list[0], &amp_index);
+    if (amp_index != -1 && num_pipes == 0) {
+        free(list[0][amp_index]);
+        list[0][amp_index] = NULL;
     }
     *input_fd = get_input_fd(list[0], &input_index);
     if (input_index != -1) {
@@ -187,6 +202,24 @@ int redirect_io(int input_fd, int output_fd) {
             return 1;
         }
     }
+    return 0;
+}
+
+int exec_background(char **cmd, int input_fd, int output_fd, pid_t *new_bg_pid) {
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return 1;
+    }
+    if (pid == 0) {
+        if (redirect_io(input_fd, output_fd) < 0) {
+            return 1;
+        }
+        execvp(cmd[0], cmd);
+        perror("exec");
+        return 1;
+    }
+    *new_bg_pid = pid;
     return 0;
 }
 
@@ -280,21 +313,51 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_pipes;
+    int input_fd, output_fd, num_pipes, bg_flag, num_jobs = 0;
+    pid_t *bg_jobs = NULL, cur_bg_pid;
     const char *user = getenv("USER");
     char ***command;
     unsetenv("OLDPWD");
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
+        bg_flag = 0;
         print_prompt(user, getenv("PWD"));
         command = get_list(&num_pipes);
-        command = prepare_list(command, &input_fd, &output_fd, num_pipes);
+        command = prepare_list(command, &input_fd, &output_fd, num_pipes, &bg_flag);
         if (is_exit(command[0][0])) {
+            for (int i = 0; i < num_jobs; i++) {
+                if (waitpid(bg_jobs[i], NULL, 0) < 0) {
+                    perror("waitpid");
+                    if (bg_jobs != NULL) {
+                        free(bg_jobs);
+                    }
+                    remove_list(command);
+                    return 1;
+                }
+            }
+            if (bg_jobs != NULL) {
+                free(bg_jobs);
+            }
             remove_list(command);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes) > 0) {
+        if (bg_flag) {
+            if (exec_background(command[0], input_fd, output_fd, &cur_bg_pid) > 0) {
+                if (bg_jobs != NULL) {
+                    free(bg_jobs);
+                }
+                remove_list(command);
+                exit(1);
+            }
+            bg_jobs = realloc(bg_jobs, sizeof(pid_t) * (num_jobs + 1));
+            bg_jobs[num_jobs] = cur_bg_pid;
+            num_jobs++;
+        }
+        else if (exec(command, input_fd, output_fd, num_pipes) > 0) {
+            if (bg_jobs != NULL) {
+                free(bg_jobs);
+            }
             remove_list(command);
             exit(1);
         }
