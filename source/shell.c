@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define MAXPATH 256
+
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
         cur_symbol = getchar();
@@ -32,7 +34,7 @@ char *get_word(char *end) {
     return word_ptr;
 }
 
-char **get_args(char *end_fl) {
+char **get_args(int *end_fl) {
     char **arg_ptr = NULL;
     char last_symb = '\0';
     int len = 0;
@@ -59,7 +61,7 @@ char **get_args(char *end_fl) {
 
 char ***get_list(int *num_pipes) {
     char ***list = NULL;
-    char end_flag = 0;
+    int end_flag = 0;
     int len = 0;
     while (end_flag != 1) {
         list = realloc(list, (len + 1) * sizeof(char **));
@@ -132,8 +134,9 @@ char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_pipes)
     return list;
 }
 
-void change_directory(char **cmd, char *cur_dir) {
+void change_directory(char **cmd) {
     char *new_dir = NULL;
+    char new_path[MAXPATH];
     if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
         new_dir = getenv("HOME");
     } else if (!strcmp(cmd[1], "-")) {  
@@ -147,7 +150,11 @@ void change_directory(char **cmd, char *cur_dir) {
     if (chdir(new_dir) < 0) {
         perror("chdir");
     }
-    if (setenv("OLDPWD", cur_dir, 1) < 0) {
+    getcwd(new_path, MAXPATH);
+    if (setenv("OLDPWD", getenv("PWD"), 1) < 0) {
+        perror("setenv");
+    }
+    if (setenv("PWD", new_path, 1) < 0) {
         perror("setenv");
     }
 }
@@ -235,12 +242,12 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes) 
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, char *cur_dir) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
     if (!strcmp(cmd_list[0][0], "cd") && num_pipes == 0) {
-        change_directory(cmd_list[0], cur_dir);
+        change_directory(cmd_list[0]);
         return 0;
     }
     return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes);
@@ -259,23 +266,20 @@ void print_prompt(const char *username, char *cur_dir) {
 
 int main() {
     int input_fd, output_fd, num_pipes;
-    const int MAX_PATH = 256;
     const char *user = getenv("USER");
-    char cur_dir[MAX_PATH];
     char ***command;
     unsetenv("OLDPWD");
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
-        getcwd(cur_dir, MAX_PATH);
-        print_prompt(user, cur_dir);
+        print_prompt(user, getenv("PWD"));
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes);
         if (is_exit(command[0][0])) {
             remove_list(command);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, cur_dir) > 0) {
+        if (exec(command, input_fd, output_fd, num_pipes) > 0) {
             remove_list(command);
             exit(1);
         }
