@@ -22,7 +22,7 @@ char *get_word(char *end) {
     int len = 0;
     symbol = getchar();
     symbol = skip_spaces(symbol);
-    while (symbol != ' ' && symbol != '\t' && symbol != '\n') {
+    while (symbol != ' ' && symbol != '\t' && symbol != '\n' && symbol != '&') {
         word_ptr = realloc(word_ptr, (len + 1) * sizeof(char));
         word_ptr[len] = symbol;
         len++;
@@ -34,21 +34,14 @@ char *get_word(char *end) {
     return word_ptr;
 }
 
-int check_separator(char *word_ptr) {
-    if (!strcmp(word_ptr, "|")) {
-        return 1;
-    }
-    return 0;
-}
-
 char **get_args(int *end_fl) {
     char **arg_ptr = NULL;
     char last_symb = '\0';
     int len = 0;
-    while (last_symb != '\n') {
+    while (last_symb != '\n' && last_symb != '&') {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
         arg_ptr[len] = get_word(&last_symb);
-        if (check_separator(arg_ptr[len])) {
+        if (strcmp(arg_ptr[len]), "|") {
             free(arg_ptr[len]);
             arg_ptr[len] = NULL;
             return arg_ptr;
@@ -70,9 +63,10 @@ char ***get_list(int *num_pipes) {
     char ***list = NULL;
     int end_flag = 0;
     int len = 0;
+    char end_sym = '\0';
     while (end_flag != 1) {
         list = realloc(list, (len + 1) * sizeof(char **));
-        list[len] = get_args(&end_flag);
+        list[len] = get_args(&end_flag, &end_sym);
         len++;
     }
     *num_pipes = len - 1;
@@ -324,7 +318,6 @@ int main() {
     pid_t *bg_jobs = NULL, cur_bg_pid;
     const char *user = getenv("USER");
     char ***command;
-    unsetenv("OLDPWD");
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
