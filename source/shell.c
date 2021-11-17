@@ -34,6 +34,13 @@ char *get_word(char *end) {
     return word_ptr;
 }
 
+int check_separator(char *word_ptr) {
+    if (!strcmp(word_ptr, "|")) {
+        return 1;
+    }
+    return 0;
+}
+
 char **get_args(int *end_fl) {
     char **arg_ptr = NULL;
     char last_symb = '\0';
@@ -41,7 +48,7 @@ char **get_args(int *end_fl) {
     while (last_symb != '\n') {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
         arg_ptr[len] = get_word(&last_symb);
-        if (!strcmp(arg_ptr[len], "|")) {
+        if (check_separator(arg_ptr[len])) {
             free(arg_ptr[len]);
             arg_ptr[len] = NULL;
             return arg_ptr;
@@ -217,8 +224,8 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
 }
 
 int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes) {
-    int fd[num_pipes + 2][2];
-    pid_t pids[num_pipes + 1];
+    int (*fd)[2] = malloc(sizeof(int [2]) * (num_pipes + 2));
+    pid_t *pids = malloc(sizeof(pid_t) * (num_pipes + 1));
     fd[0][0] = input_fd;
     fd[0][1] = -1;
     fd[num_pipes + 1][0] = -1;
@@ -226,19 +233,27 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes) 
     for (int i = 1; i < num_pipes + 2; i++) {
         if (i != num_pipes + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
+            free(fd);
+            free(pids);
             return 1;
         }
         pids[i - 1] = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
         if (pids[i - 1] == 1) {
+            free(fd);
+            free(pids);
             return 1;
         }
     }
     for (int i = 0; i < num_pipes + 1; i++) {
         if (waitpid(pids[i], NULL, 0) < 0) {
             perror("waitpid");
+            free(fd);
+            free(pids);
             return 1;
         }
     }
+    free(fd);
+    free(pids);
     return 0;
 }
 
