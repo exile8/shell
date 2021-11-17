@@ -91,6 +91,13 @@ void remove_list(char ***list) {
     free(list);
 }
 
+void clear(char ***list, pid_t *jobs) {
+    if (jobs != NULL) {
+        free(jobs);
+    }
+    remove_list(list);
+}
+
 int set_bg_flag(char **cmd, int *amp_index) {
     for (int i = 1; cmd[i]; i++) {
         if (!strcmp(cmd[i], "&") && cmd[i + 1] == NULL) {
@@ -329,36 +336,23 @@ int main() {
             for (int i = 0; i < num_jobs; i++) {
                 if (waitpid(bg_jobs[i], NULL, 0) < 0) {
                     perror("waitpid");
-                    if (bg_jobs != NULL) {
-                        free(bg_jobs);
-                    }
-                    remove_list(command);
+                    clear(command, bg_jobs);
                     return 1;
                 }
             }
-            if (bg_jobs != NULL) {
-                free(bg_jobs);
-            }
-            remove_list(command);
+            clear(command, bg_jobs);
             return 0;
         }
         if (bg_flag) {
             if (exec_background(command[0], input_fd, output_fd, &cur_bg_pid) > 0) {
-                if (bg_jobs != NULL) {
-                    free(bg_jobs);
-                }
-                remove_list(command);
-                exit(1);
+                clear(command, bg_jobs);
             }
             bg_jobs = realloc(bg_jobs, sizeof(pid_t) * (num_jobs + 1));
             bg_jobs[num_jobs] = cur_bg_pid;
             num_jobs++;
         }
         else if (exec(command, input_fd, output_fd, num_pipes) > 0) {
-            if (bg_jobs != NULL) {
-                free(bg_jobs);
-            }
-            remove_list(command);
+            clear(command, bg_jobs);
             exit(1);
         }
         remove_list(command);
