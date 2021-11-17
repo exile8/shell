@@ -22,7 +22,7 @@ char *get_word(char *end) {
     int len = 0;
     symbol = getchar();
     symbol = skip_spaces(symbol);
-    while (symbol != ' ' && symbol != '\t' && symbol != '\n' && symbol != '&') {
+    while (symbol != ' ' && symbol != '\t' && symbol != '\n') {
         word_ptr = realloc(word_ptr, (len + 1) * sizeof(char));
         word_ptr[len] = symbol;
         len++;
@@ -38,10 +38,10 @@ char **get_args(int *end_fl) {
     char **arg_ptr = NULL;
     char last_symb = '\0';
     int len = 0;
-    while (last_symb != '\n' && last_symb != '&') {
+    while (last_symb != '\n') {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
         arg_ptr[len] = get_word(&last_symb);
-        if (strcmp(arg_ptr[len]), "|") {
+        if (!strcmp(arg_ptr[len], "|")) {
             free(arg_ptr[len]);
             arg_ptr[len] = NULL;
             return arg_ptr;
@@ -63,10 +63,9 @@ char ***get_list(int *num_pipes) {
     char ***list = NULL;
     int end_flag = 0;
     int len = 0;
-    char end_sym = '\0';
     while (end_flag != 1) {
         list = realloc(list, (len + 1) * sizeof(char **));
-        list[len] = get_args(&end_flag, &end_sym);
+        list[len] = get_args(&end_flag);
         len++;
     }
     *num_pipes = len - 1;
@@ -309,6 +308,14 @@ int is_exit(char *first_arg) {
     return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
+void term_bg_jobs(pid_t *pids, int num_pids) {
+    for (int i = 0; i < num_pids; i++) {
+        if (kill(pids[i], 0) != -1) {
+            kill(pids[i], SIGTERM);
+        }
+    }
+}
+
 void print_prompt(const char *username, char *cur_dir) {
     printf("%s:%s$ ", username, cur_dir);
 }
@@ -326,27 +333,23 @@ int main() {
         command = get_list(&num_pipes);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes, &bg_flag);
         if (is_exit(command[0][0])) {
-            for (int i = 0; i < num_jobs; i++) {
-                if (waitpid(bg_jobs[i], NULL, 0) < 0) {
-                    perror("waitpid");
-                    clear(command, bg_jobs);
-                    return 1;
-                }
-            }
+            term_bg_jobs(bg_jobs, num_jobs);
             clear(command, bg_jobs);
             return 0;
         }
         if (bg_flag) {
             if (exec_background(command[0], input_fd, output_fd, &cur_bg_pid) > 0) {
                 clear(command, bg_jobs);
+                exit(1);
             }
             bg_jobs = realloc(bg_jobs, sizeof(pid_t) * (num_jobs + 1));
             bg_jobs[num_jobs] = cur_bg_pid;
             num_jobs++;
-        }
-        else if (exec(command, input_fd, output_fd, num_pipes) > 0) {
-            clear(command, bg_jobs);
-            exit(1);
+        } else {
+            if (exec(command, input_fd, output_fd, num_pipes) > 0) {
+                clear(command, bg_jobs);
+                exit(1);
+            }
         }
         remove_list(command);
     }
