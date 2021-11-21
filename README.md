@@ -148,6 +148,19 @@ user:/$ cd ~
 user:/home/user$
 ```
 
+* Фоновый режим
+
+```
+user:/home/user/shell$ gedit &
+PID: 7556
+user:/home/user/shell$ ls | sort | wc &
+PID: 7559
+user:/home/user/shell$       4       4      30
+evince &
+PID: 7560
+user:/home/user/shell$
+```
+
 * Выход из программы
 
 ```
