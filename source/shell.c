@@ -84,9 +84,9 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void clear(char ***list, pid_t *jobs) {
-    if (jobs != NULL) {
-        free(jobs);
+void clear(char ***list, pid_t *bg_pids) {
+    if (bg_pids != NULL) {
+        free(bg_pids);
     }
     remove_list(list);
 }
