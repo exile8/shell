@@ -238,13 +238,25 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-pid_t *append_pid(pid_t *pids, pid_t pid, int num_pids) {
-    pids = realloc(pids, sizeof(pid_t) * (num_pids + 1));
-    pids[num_pids] = pid;
+pid_t *append_pids(pid_t *pids, pid_t *new_pids, int num_pids, int num_new_pids) {
+    pids = realloc(pids, sizeof(pid_t) * (num_pids + num_new_pids));
+    for (int i = 0; i < num_new_pids; i++) {
+        pids[num_pids + i] = new_pids[i];
+    }
     return pids;
 }
 
-int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_pids, int bg_flag) {
+int wait_pipeline(pid_t *pids, int num_pids) {
+    for (int i = 0; i < num_pids; i++) {
+        if (waitpid(pids[i], NULL, 0) < 0) {
+            perror("waitpid");
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
     int (*fd)[2] = malloc(sizeof(int [2]) * (num_pipes + 2));
     pid_t *pids = malloc(sizeof(pid_t) * (num_pipes + 1));
     fd[0][0] = input_fd;
@@ -265,17 +277,15 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, 
             return 1;
         }
     }
-    for (int i = 0; i < num_pipes + 1; i++) {
-        if (!bg_flag) {
-            if ( waitpid(pids[i], NULL, 0) < 0) {
-                perror("waitpid");
-                free(fd);
-                free(pids);
-                return 1;
-            }
-        } else {
-            *bg_pids = append_pid(*bg_pids, pids[i], *num_pids);
-            *num_pids += 1;
+    if (bg_flag) {
+        *bg_pids = append_pids(*bg_pids, pids, *num_bg_pids, num_pipes + 1);
+        *num_bg_pids += num_pipes + 1;
+        printf("PID: %d\n", pids[num_pipes]);
+    } else {
+        if (wait_pipeline(pids, num_pipes + 1) > 0) {
+            free(fd);
+            free(pids);
+            return 1;
         }
     }
     free(fd);
@@ -283,7 +293,7 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, 
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_pids, int bg_flag) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
@@ -291,7 +301,7 @@ int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **b
         change_directory(cmd_list[0]);
         return 0;
     }
-    return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes, bg_pids, num_pids, bg_flag);
+    return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes, bg_pids, num_bg_pids, bg_flag);
 }
 
 int is_exit(char *first_arg) {
@@ -301,8 +311,8 @@ int is_exit(char *first_arg) {
     return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
-void term_bg_pids(pid_t *pids, int num_pids) {
-    for (int i = 0; i < num_pids; i++) {
+void term_bg_pids(pid_t *pids, int num_bg_pids) {
+    for (int i = 0; i < num_bg_pids; i++) {
         if (kill(pids[i], 0) != -1) {
             kill(pids[i], SIGTERM);
         }
