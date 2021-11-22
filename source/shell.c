@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 
 #define MAXPATH 256
+#define AND 0
+#define OR 1
 
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
@@ -34,14 +36,23 @@ char *get_word(char *end) {
     return word_ptr;
 }
 
-char **get_args(int *end_fl) {
+int check_separator(char *word_ptr) {
+    if (!strcmp(word_ptr, "|") || !strcmp(word_ptr, "&&") || !strcmp(word_ptr, "||")) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+char **get_args(int *end_fl, char *separator) {
     char **arg_ptr = NULL;
     char last_symb = '\0';
     int len = 0;
     while (last_symb != '\n') {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
         arg_ptr[len] = get_word(&last_symb);
-        if (!strcmp(arg_ptr[len], "|")) {
+        if (check_separator(arg_ptr[len])) {
+            strcpy(separator, arg_ptr[len]);
             free(arg_ptr[len]);
             arg_ptr[len] = NULL;
             return arg_ptr;
@@ -54,21 +65,37 @@ char **get_args(int *end_fl) {
     } else {
         arg_ptr = realloc(arg_ptr, (len + 1) * sizeof(char *));
     }
+    strcpy(separator, "");
     *end_fl = 1;
     arg_ptr[len] = NULL;
     return arg_ptr;
 }
 
-char ***get_list(int *num_pipes) {
+char ***get_list(int *num_pipes, int *num_links, int **links) {
     char ***list = NULL;
+    char cur_separator[3] = {'\0'};
+    int *link_array = NULL;
     int end_flag = 0;
     int len = 0;
     while (end_flag != 1) {
         list = realloc(list, (len + 1) * sizeof(char **));
-        list[len] = get_args(&end_flag);
+        list[len] = get_args(&end_flag, cur_separator);
+        if (!strcmp(cur_separator, "|")) {
+            *num_pipes += 1;
+        }
+        if (!strcmp(cur_separator, "&&")) {
+            link_array = realloc(link_array, (len + 1) * sizeof(int));
+            link_array[len] = AND;
+            *num_links += 1;
+        }
+        if (!strcmp(cur_separator, "||")) {
+            link_array = realloc(link_array, (len + 1) * sizeof(int));
+            link_array[len] = OR;
+            *num_links += 1;
+        }
         len++;
     }
-    *num_pipes = len - 1;
+    *links = link_array;
     list = realloc(list, (len + 1) * sizeof(char **));
     list[len] = NULL;
     return list;
@@ -84,9 +111,12 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void clear(char ***list, pid_t *bg_pids) {
+void clear(char ***list, pid_t *bg_pids, int *links) {
     if (bg_pids != NULL) {
         free(bg_pids);
+    }
+    if (links != NULL) {
+        free(links);
     }
     remove_list(list);
 }
@@ -293,12 +323,49 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, 
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
+int exec_chain(char ***cmd_list, int num_links, int *links) {
+    int wstatus;
+    pid_t pid;
+    for (int i = 0; i < num_links + 1; i++) {
+        pid = fork();
+        if (pid < 0) {
+            perror("fork");
+            return 1;
+        }
+        if (pid == 0) {
+            execvp(cmd_list[i][0], cmd_list[i]);
+            perror("exec");
+            return 1;
+        }
+        if (waitpid(pid, &wstatus, 0) < 0) {
+            perror("waitpid");
+            return 1;
+        }
+        if (i < num_links) {
+            if (wstatus == 0 && links[i] == OR) {
+                break;
+            }
+            if (wstatus != 0 && links[i] == AND) {
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int num_links, int *links) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
     if (!strcmp(cmd_list[0][0], "cd") && num_pipes == 0) {
         change_directory(cmd_list[0]);
+        return 0;
+    }
+    if (num_links > 0 && num_pipes == 0) {
+        return exec_chain(cmd_list, num_links, links);
+    }
+    if (num_links > 0 && num_pipes > 0) {
+        puts("Syntax error");
         return 0;
     }
     return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes, bg_pids, num_bg_pids, bg_flag);
@@ -324,26 +391,31 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_pipes, bg_flag, num_bg_pids = 0;
+    int input_fd, output_fd, num_pipes, num_links, bg_flag, num_bg_pids = 0;
     pid_t *bg_pids = NULL;
+    int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         num_pipes = 0;
+        num_links = 0;
         bg_flag = 0;
         print_prompt(user, getenv("PWD"));
-        command = get_list(&num_pipes);
+        command = get_list(&num_pipes, &num_links, &links);
         command = prepare_list(command, &input_fd, &output_fd, num_pipes, &bg_flag);
         if (is_exit(command[0][0])) {
             term_bg_pids(bg_pids, num_bg_pids);
-            clear(command, bg_pids);
+            clear(command, bg_pids, links);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, &bg_pids, &num_bg_pids, bg_flag) > 0) {
-            clear(command, bg_pids);
+        if (exec(command, input_fd, output_fd, num_pipes, &bg_pids, &num_bg_pids, bg_flag, num_links, links) > 0) {
+            clear(command, bg_pids, links);
             exit(1);
         }
         remove_list(command);
+        if (links != NULL) {
+            free(links);
+        }
     }
 }
