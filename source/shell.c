@@ -10,6 +10,8 @@
 #define MAXPATH 256
 #define AND 0
 #define OR 1
+#define END 0
+#define CONT 1
 
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
@@ -71,7 +73,7 @@ char **get_args(int *end_fl, char *separator) {
     return arg_ptr;
 }
 
-char ***get_list(int *num_pipes, int *num_links, int **links) {
+char ***get_list(int *num_seps, int **links) {
     char ***list = NULL;
     char cur_separator[3] = {'\0'};
     int *link_array = NULL;
@@ -80,22 +82,18 @@ char ***get_list(int *num_pipes, int *num_links, int **links) {
     while (end_flag != 1) {
         list = realloc(list, (len + 1) * sizeof(char **));
         list[len] = get_args(&end_flag, cur_separator);
-        if (!strcmp(cur_separator, "|")) {
-            *num_pipes += 1;
-        }
         if (!strcmp(cur_separator, "&&")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
             link_array[len] = AND;
-            *num_links += 1;
         }
         if (!strcmp(cur_separator, "||")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
             link_array[len] = OR;
-            *num_links += 1;
         }
         len++;
     }
     *links = link_array;
+    *num_seps = len - 1;
     list = realloc(list, (len + 1) * sizeof(char **));
     list[len] = NULL;
     return list;
@@ -111,8 +109,8 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void clear(char ***list, pid_t *bg_pids, int *links) {
-    if (bg_pids != NULL) {
+void clear(char ***list, pid_t *bg_pids, int *links, int mode) {
+    if (mode == END && bg_pids != NULL) {
         free(bg_pids);
     }
     if (links != NULL) {
@@ -165,23 +163,26 @@ char **cut_args(char **cmd, int cut_pos) {
     return cmd;
 }
 
-char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_pipes, int *bg_flag) {
+char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_seps, int *bg_flag, int *links) {
     int input_index = -1, output_index = -1, amp_index = -1;
+    if (links != NULL) {
+        return list;
+    }
     if (list[0][0] == NULL) {
         return list;
     }
-    *bg_flag = set_bg_flag(list[num_pipes], &amp_index);
+    *bg_flag = set_bg_flag(list[num_seps], &amp_index);
     if (amp_index != -1) {
-        free(list[num_pipes][amp_index]);
-        list[num_pipes][amp_index] = NULL;
+        free(list[num_seps][amp_index]);
+        list[num_seps][amp_index] = NULL;
     }
     *input_fd = get_input_fd(list[0], &input_index);
     if (input_index != -1) {
         list[0] = cut_args(list[0], input_index);
     }
-    *output_fd = get_output_fd(list[num_pipes], &output_index);
+    *output_fd = get_output_fd(list[num_seps], &output_index);
     if (output_index != -1) {
-        list[num_pipes] = cut_args(list[num_pipes], output_index);
+        list[num_seps] = cut_args(list[num_seps], output_index);
     }
     return list;
 }
@@ -286,15 +287,15 @@ int wait_pipeline(pid_t *pids, int num_pids) {
     return 0;
 }
 
-int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
-    int (*fd)[2] = malloc(sizeof(int [2]) * (num_pipes + 2));
-    pid_t *pids = malloc(sizeof(pid_t) * (num_pipes + 1));
+int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
+    int (*fd)[2] = malloc(sizeof(int [2]) * (num_seps + 2));
+    pid_t *pids = malloc(sizeof(pid_t) * (num_seps + 1));
     fd[0][0] = input_fd;
     fd[0][1] = -1;
-    fd[num_pipes + 1][0] = -1;
-    fd[num_pipes + 1][1] = output_fd;
-    for (int i = 1; i < num_pipes + 2; i++) {
-        if (i != num_pipes + 1 && pipe(fd[i]) < 0) {
+    fd[num_seps + 1][0] = -1;
+    fd[num_seps + 1][1] = output_fd;
+    for (int i = 1; i < num_seps + 2; i++) {
+        if (i != num_seps + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
             free(fd);
             free(pids);
@@ -308,11 +309,11 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, 
         }
     }
     if (bg_flag) {
-        *bg_pids = append_pids(*bg_pids, pids, *num_bg_pids, num_pipes + 1);
-        *num_bg_pids += num_pipes + 1;
-        printf("PID: %d\n", pids[num_pipes]);
+        *bg_pids = append_pids(*bg_pids, pids, *num_bg_pids, num_seps + 1);
+        *num_bg_pids += num_seps + 1;
+        printf("PID: %d\n", pids[num_seps]);
     } else {
-        if (wait_pipeline(pids, num_pipes + 1) > 0) {
+        if (wait_pipeline(pids, num_seps + 1) > 0) {
             free(fd);
             free(pids);
             return 1;
@@ -323,10 +324,10 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_pipes, 
     return 0;
 }
 
-int exec_chain(char ***cmd_list, int num_links, int *links) {
+int exec_chain(char ***cmd_list, int num_seps, int *links) {
     int wstatus;
     pid_t pid;
-    for (int i = 0; i < num_links + 1; i++) {
+    for (int i = 0; i < num_seps + 1; i++) {
         pid = fork();
         if (pid < 0) {
             perror("fork");
@@ -341,7 +342,7 @@ int exec_chain(char ***cmd_list, int num_links, int *links) {
             perror("waitpid");
             return 1;
         }
-        if (i < num_links) {
+        if (i < num_seps) {
             if (wstatus == 0 && links[i] == OR) {
                 break;
             }
@@ -353,22 +354,18 @@ int exec_chain(char ***cmd_list, int num_links, int *links) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_pipes, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int num_links, int *links) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int *links) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
-    if (!strcmp(cmd_list[0][0], "cd") && num_pipes == 0) {
+    if (!strcmp(cmd_list[0][0], "cd") && num_seps == 0) {
         change_directory(cmd_list[0]);
         return 0;
     }
-    if (num_links > 0 && num_pipes == 0) {
-        return exec_chain(cmd_list, num_links, links);
+    if (links != NULL) {
+        return exec_chain(cmd_list, num_seps, links);
     }
-    if (num_links > 0 && num_pipes > 0) {
-        puts("Syntax error");
-        return 0;
-    }
-    return exec_pipeline(cmd_list, input_fd, output_fd, num_pipes, bg_pids, num_bg_pids, bg_flag);
+    return exec_pipeline(cmd_list, input_fd, output_fd, num_seps, bg_pids, num_bg_pids, bg_flag);
 }
 
 int is_exit(char *first_arg) {
@@ -391,31 +388,27 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_pipes, num_links, bg_flag, num_bg_pids = 0;
+    int input_fd, output_fd, num_seps, bg_flag, num_bg_pids = 0;
     pid_t *bg_pids = NULL;
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
-        num_pipes = 0;
-        num_links = 0;
+        num_seps = 0;
         bg_flag = 0;
         print_prompt(user, getenv("PWD"));
-        command = get_list(&num_pipes, &num_links, &links);
-        command = prepare_list(command, &input_fd, &output_fd, num_pipes, &bg_flag);
+        command = get_list(&num_seps, &links);
+        command = prepare_list(command, &input_fd, &output_fd, num_seps, &bg_flag, links);
         if (is_exit(command[0][0])) {
             term_bg_pids(bg_pids, num_bg_pids);
-            clear(command, bg_pids, links);
+            clear(command, bg_pids, links, END);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_pipes, &bg_pids, &num_bg_pids, bg_flag, num_links, links) > 0) {
-            clear(command, bg_pids, links);
+        if (exec(command, input_fd, output_fd, num_seps, &bg_pids, &num_bg_pids, bg_flag, links) > 0) {
+            clear(command, bg_pids, links, END);
             exit(1);
         }
-        remove_list(command);
-        if (links != NULL) {
-            free(links);
-        }
+        clear(command, bg_pids, links, CONT);
     }
 }
