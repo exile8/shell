@@ -6,12 +6,23 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #define MAXPATH 256
 #define AND 0
 #define OR 1
 #define END 0
 #define CONT 1
+
+struct exec_environ {
+    pid_t *pids;
+    int num_cur_procs;
+    pid_t *bg_pids;
+    int num_bg_pids;
+    int bg_flag;
+};
+
+typedef struct exec_environ *Execenv;
 
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
@@ -119,12 +130,19 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void clear(char ***list, pid_t *bg_pids, int *links, int mode) {
-    if (mode == END && bg_pids != NULL) {
-        free(bg_pids);
+void reset(char ***list, Execenv state, int *links, int mode) {
+    if (mode == END && state->bg_pids != NULL) {
+        free(state->bg_pids);
     }
     if (links != NULL) {
         free(links);
+    }
+    if (state->pids != NULL) {
+        free(state->pids);
+        state->pids = NULL;
+    }
+    if (mode == CONT) {
+        state->bg_flag = 0;
     }
     remove_list(list);
 }
@@ -279,12 +297,12 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-pid_t *append_pids(pid_t *pids, pid_t *new_pids, int num_pids, int num_new_pids) {
-    pids = realloc(pids, sizeof(pid_t) * (num_pids + num_new_pids));
+void add_bg_pids(Execenv state, int num_new_pids) {
+    state->bg_pids = realloc(state->bg_pids, sizeof(pid_t) * (state->num_bg_pids + num_new_pids));
     for (int i = 0; i < num_new_pids; i++) {
-        pids[num_pids + i] = new_pids[i];
+        state->bg_pids[state->num_bg_pids + i] = state->pids[i];
     }
-    return pids;
+    state->num_bg_pids += num_new_pids;
 }
 
 int wait_pipeline(pid_t *pids, int num_pids) {
@@ -297,9 +315,9 @@ int wait_pipeline(pid_t *pids, int num_pids) {
     return 0;
 }
 
-int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag) {
+int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv state) {
     int (*fd)[2] = malloc(sizeof(int [2]) * (num_seps + 2));
-    pid_t *pids = malloc(sizeof(pid_t) * (num_seps + 1));
+    state->pids = malloc(sizeof(pid_t) * (num_seps + 1));
     fd[0][0] = input_fd;
     fd[0][1] = -1;
     fd[num_seps + 1][0] = -1;
@@ -308,47 +326,45 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, p
         if (i != num_seps + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
             free(fd);
-            free(pids);
             return 1;
         }
-        pids[i - 1] = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
-        if (pids[i - 1] == 1) {
+        state->pids[i - 1] = exec_with_redirect(cmd_list[i - 1], fd[i - 1], fd[i]);
+        if (state->pids[i - 1] == 1) {
             free(fd);
-            free(pids);
             return 1;
+        } else {
+            state->num_cur_procs++;
         }
     }
-    if (bg_flag) {
-        *bg_pids = append_pids(*bg_pids, pids, *num_bg_pids, num_seps + 1);
-        *num_bg_pids += num_seps + 1;
-        printf("PID: %d\n", pids[num_seps]);
+    if (state->bg_flag) {
+        add_bg_pids(state, num_seps + 1);
+        printf("PID: %d\n", state->pids[num_seps]);
     } else {
-        if (wait_pipeline(pids, num_seps + 1) > 0) {
+        if (wait_pipeline(state->pids, num_seps + 1) > 0) {
             free(fd);
-            free(pids);
             return 1;
         }
     }
     free(fd);
-    free(pids);
     return 0;
 }
 
-int exec_chain(char ***cmd_list, int num_seps, int *links) {
+int exec_chain(char ***cmd_list, Execenv state, int num_seps, int *links) {
     int wstatus;
-    pid_t pid;
+    state->pids = malloc(sizeof(pid_t));
+    state->num_cur_procs = 1;
     for (int i = 0; i < num_seps + 1; i++) {
-        pid = fork();
-        if (pid < 0) {
+        *state->pids = fork();
+        if (*state->pids < 0) {
             perror("fork");
             return 1;
         }
-        if (pid == 0) {
+        if (*state->pids == 0) {
             execvp(cmd_list[i][0], cmd_list[i]);
             perror("exec");
             return 1;
         }
-        if (waitpid(pid, &wstatus, 0) < 0) {
+        if (waitpid(*state->pids, &wstatus, 0) < 0) {
             perror("waitpid");
             return 1;
         }
@@ -364,7 +380,7 @@ int exec_chain(char ***cmd_list, int num_seps, int *links) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int *links, int input_err_flag) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv state, int *links, int input_err_flag) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
@@ -377,9 +393,9 @@ int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg
         return 0;
     }
     if (links != NULL) {
-        return exec_chain(cmd_list, num_seps, links);
+        return exec_chain(cmd_list, state, num_seps, links);
     }
-    return exec_pipeline(cmd_list, input_fd, output_fd, num_seps, bg_pids, num_bg_pids, bg_flag);
+    return exec_pipeline(cmd_list, input_fd, output_fd, num_seps, state);
 }
 
 int is_exit(char *first_arg) {
@@ -402,8 +418,9 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_seps, bg_flag, num_bg_pids = 0, input_err_flag;
-    pid_t *bg_pids = NULL;
+    int input_fd, output_fd, num_seps, input_err_flag;
+    struct exec_environ shell_state = {NULL, 0, NULL, 0, 0};
+    Execenv state = &shell_state;
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
@@ -411,19 +428,18 @@ int main() {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         input_err_flag = 0;
         num_seps = 0;
-        bg_flag = 0;
         print_prompt(user, getenv("PWD"));
         command = get_list(&num_seps, &links, &input_err_flag);
-        command = prepare_list(command, &input_fd, &output_fd, num_seps, &bg_flag, links);
+        command = prepare_list(command, &input_fd, &output_fd, num_seps, &state->bg_flag, links);
         if (is_exit(command[0][0])) {
-            term_bg_pids(bg_pids, num_bg_pids);
-            clear(command, bg_pids, links, END);
+            term_bg_pids(state->bg_pids, state->num_bg_pids);
+            reset(command, state, links, END);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_seps, &bg_pids, &num_bg_pids, bg_flag, links, input_err_flag) > 0) {
-            clear(command, bg_pids, links, END);
+        if (exec(command, input_fd, output_fd, num_seps, state, links, input_err_flag) > 0) {
+            reset(command, state, links, END);
             exit(1);
         }
-        clear(command, bg_pids, links, CONT);
+        reset(command, state, links, CONT);
     }
 }
