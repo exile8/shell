@@ -143,6 +143,7 @@ void reset(char ***list, Execenv state, int *links, int mode) {
     }
     if (mode == CONT) {
         state->bg_flag = 0;
+        state->num_cur_procs = 0;
     }
     remove_list(list);
 }
@@ -220,7 +221,7 @@ void change_directory(char **cmd) {
     char new_path[MAXPATH];
     if (cmd[1] == NULL || !strcmp(cmd[1], "~")) {
         new_dir = getenv("HOME");
-    } else if (!strcmp(cmd[1], "-")) {  
+    } else if (!strcmp(cmd[1], "-")) {
         new_dir = getenv("OLDPWD");
         if (new_dir != NULL) {
             puts(new_dir);
@@ -316,7 +317,7 @@ int wait_pipeline(pid_t *pids, int num_pids) {
 }
 
 int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv state) {
-    int (*fd)[2] = malloc(sizeof(int [2]) * (num_seps + 2));
+    int (*fd)[2] = malloc(sizeof(int[2]) * (num_seps + 2));
     state->pids = malloc(sizeof(pid_t) * (num_seps + 1));
     fd[0][0] = input_fd;
     fd[0][1] = -1;
@@ -424,6 +425,15 @@ int main() {
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
+    void handler(int signo) {
+        for (int i = 0; i < state->num_cur_procs; i++) {
+            kill(state->pids[i], SIGINT);
+        }
+        if (state->num_cur_procs > 0) {
+            putchar('\n');
+        }
+    }
+    signal(SIGINT, handler);
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         input_err_flag = 0;
