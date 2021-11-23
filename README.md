@@ -160,6 +160,23 @@ evince &
 PID: 7560
 user:/home/user/shell$
 ```
+* Конвейреры **&&** и **||**
+
+```
+user:/home/user/shell$ vim hello.c && gcc hello.c -o hello && ./hello
+hello!
+user:/home/user/shell$ vim bad_code.c && gcc bad_code.c -o prog -Wall && ./prog
+bad_code.c: In function ‘main’:
+bad_code.c:4:28: error: expected ‘;’ before ‘i’
+    4 |     for (int i = 0; i < 10. i++) {
+      |                            ^~
+      |                            ;
+user:/home/user/shell$ cmd-does-not-exit || cmd-does-not-exist || pwd
+exec: No such file or directory
+exec: No such file or directory
+/home/user/shell
+user:/home/user/shell$ 
+```
 
 * Выход из программы
 
@@ -186,3 +203,5 @@ user:/home/user/shell$ quit
     * Смена директории cd
 * 7.0
     * Фоновый режим
+* 8.0
+    * Конвейеры && и ||
