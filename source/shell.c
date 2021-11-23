@@ -73,10 +73,12 @@ char **get_args(int *end_fl, char *separator) {
     return arg_ptr;
 }
 
-char ***get_list(int *num_seps, int **links) {
+char ***get_list(int *num_seps, int **links, int *input_err_flag) {
     char ***list = NULL;
     char cur_separator[3] = {'\0'};
     int *link_array = NULL;
+    int num_pipes = 0;
+    int num_links = 0;
     int end_flag = 0;
     int len = 0;
     while (end_flag != 1) {
@@ -85,10 +87,15 @@ char ***get_list(int *num_seps, int **links) {
         if (!strcmp(cur_separator, "&&")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
             link_array[len] = AND;
+            num_links++;
         }
         if (!strcmp(cur_separator, "||")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
             link_array[len] = OR;
+            num_links ++;
+        }
+        if (!strcmp(cur_separator, "|")) {
+            num_pipes++;
         }
         len++;
     }
@@ -96,6 +103,9 @@ char ***get_list(int *num_seps, int **links) {
     *num_seps = len - 1;
     list = realloc(list, (len + 1) * sizeof(char **));
     list[len] = NULL;
+    if (num_links > 0 && num_pipes > 0) {
+        *input_err_flag = 1;
+    }
     return list;
 }
 
@@ -354,8 +364,12 @@ int exec_chain(char ***cmd_list, int num_seps, int *links) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int *links) {
+int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, pid_t **bg_pids, int *num_bg_pids, int bg_flag, int *links, int input_err_flag) {
     if (cmd_list[0][0] == NULL) {
+        return 0;
+    }
+    if (input_err_flag == 1) {
+        puts("Wrong input");
         return 0;
     }
     if (!strcmp(cmd_list[0][0], "cd") && num_seps == 0) {
@@ -388,24 +402,25 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_seps, bg_flag, num_bg_pids = 0;
+    int input_fd, output_fd, num_seps, bg_flag, num_bg_pids = 0, input_err_flag;
     pid_t *bg_pids = NULL;
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
     while (1) {
         input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
+        input_err_flag = 0;
         num_seps = 0;
         bg_flag = 0;
         print_prompt(user, getenv("PWD"));
-        command = get_list(&num_seps, &links);
+        command = get_list(&num_seps, &links, &input_err_flag);
         command = prepare_list(command, &input_fd, &output_fd, num_seps, &bg_flag, links);
         if (is_exit(command[0][0])) {
             term_bg_pids(bg_pids, num_bg_pids);
             clear(command, bg_pids, links, END);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_seps, &bg_pids, &num_bg_pids, bg_flag, links) > 0) {
+        if (exec(command, input_fd, output_fd, num_seps, &bg_pids, &num_bg_pids, bg_flag, links, input_err_flag) > 0) {
             clear(command, bg_pids, links, END);
             exit(1);
         }
