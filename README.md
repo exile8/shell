@@ -102,37 +102,32 @@ source
 
 ```
 user:/home/user/shell$ cat input.txt
-./
-user:/home/user/shell$ ls -a < input.txt | rev | sort > output.txt
+apple
+pie
+pear
+carrot
+user:/home/user/shell$ sort < input.txt | rev | sort > output.txt
 user:/home/user/shell$ cat output.txt
-.
-..
-dm.EMDAER
-ecruos
-elifekaM
-nib
-tig.
-txt.tupni
-txt.tuptuo
+eip
+elppa
+raep
+torrac
 ```
 
 * **> filename** и **< filename** могут располагаться в любой части строки ввода
 
 ```
 user:/home/user/shell$ cat input.txt
-./
-user:/home/user/shell$ < input.txt ls -a > output.txt -l
+apple
+pie
+pear
+carrot
+user:/home/user/shell$ < input.txt sort > output.txt -r
 user:/home/user/shell$ cat output.txt
-total 32
-drwxrwxr-x  5 user user 4096 Nov  8 17:09 .
-drwxrwxr-x 14 user user 4096 Oct 23 21:46 ..
-drwxrwxr-x  2 user user 4096 Nov  8 16:55 bin
-drwxrwxr-x  8 user user 4096 Nov  8 16:57 .git
--rw-------  1 user user    3 Nov  8 16:40 input.txt
--rw-rw-r--  1 user user   90 Nov  3 07:26 Makefile
--rw-------  1 user user    0 Nov  8 17:09 output.txt
--rw-rw-r--  1 user user 2814 Nov  8 17:08 README.md
-drwxrwxr-x  2 user user 4096 Nov  8 17:06 source
+pie
+pear
+carrot
+apple
 ```
 
 * Смена директории
@@ -178,6 +173,14 @@ exec: No such file or directory
 user:/home/user/shell$ 
 ```
 
+* Обработка сигнала **SIGINT** (ctrl + C)
+
+```
+user:/home/user/shell$ gedit
+^C
+user:/home/user/shell$ ^C
+```
+
 * Выход из программы
 
 ```
@@ -205,3 +208,5 @@ user:/home/user/shell$ quit
     * Фоновый режим
 * 8.0
     * Конвейеры && и ||
+* 9.0
+    * Обработка ctrl + C
