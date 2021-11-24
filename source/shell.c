@@ -16,13 +16,20 @@
 
 struct exec_environ {
     pid_t *pids;
-    int num_cur_procs;
+    int num_procs;
     pid_t *bg_pids;
     int num_bg_pids;
     int bg_flag;
 };
 
-typedef struct exec_environ *Execenv;
+typedef struct exec_environ *execenv;
+
+struct file_io_descs {
+    int *input_fds;
+    int *output_fds;
+};
+
+typedef struct file_io_descs *io_descs;
 
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
@@ -103,7 +110,7 @@ char ***get_list(int *num_seps, int **links, int *input_err_flag) {
         if (!strcmp(cur_separator, "||")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
             link_array[len] = OR;
-            num_links ++;
+            num_links++;
         }
         if (!strcmp(cur_separator, "|")) {
             num_pipes++;
@@ -130,10 +137,7 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void reset(char ***list, Execenv state, int *links, int mode) {
-    if (mode == END && state->bg_pids != NULL) {
-        free(state->bg_pids);
-    }
+void reset(char ***list, execenv state, io_descs inout, int *links, int mode) {
     if (links != NULL) {
         free(links);
     }
@@ -141,9 +145,20 @@ void reset(char ***list, Execenv state, int *links, int mode) {
         free(state->pids);
         state->pids = NULL;
     }
+    if (inout->input_fds != NULL) {
+        free(inout->input_fds);
+        inout->input_fds = NULL;
+    }
+    if (inout->output_fds != NULL) {
+        free(inout->output_fds);
+        inout->output_fds = NULL;
+    }
+    if (mode == END && state->bg_pids != NULL) {
+        free(state->bg_pids);
+    }
     if (mode == CONT) {
         state->bg_flag = 0;
-        state->num_cur_procs = 0;
+        state->num_procs = 0;
     }
     remove_list(list);
 }
@@ -192,27 +207,53 @@ char **cut_args(char **cmd, int cut_pos) {
     return cmd;
 }
 
-char ***prepare_list(char ***list, int *input_fd, int *output_fd, int num_seps, int *bg_flag, int *links) {
-    int input_index = -1, output_index = -1, amp_index = -1;
-    if (links != NULL) {
-        return list;
+char **get_bg(char **cmd, int *bg_flag) {
+    int amp_index = -1;
+    *bg_flag = set_bg_flag(cmd, &amp_index);
+    if (amp_index != -1) {
+        free(cmd[amp_index]);
+        cmd[amp_index] = NULL;
     }
+    return cmd;
+}
+
+char ***get_io(char ***list, io_descs inout, int num_descs, int num_seps) {
+    int input_index = -1, output_index = -1;
+    int *inputs = malloc(sizeof(int) * num_descs);
+    int *outputs = malloc(sizeof(int) * num_descs);
+    for (int i = 0; i < num_descs; i++) {
+        inputs[i] = get_input_fd(list[i], &input_index);
+        if (input_index != -1) {
+            list[i] = cut_args(list[i], input_index);
+            input_index = -1;
+        }
+        outputs[num_descs - 1 - i] = get_output_fd(list[num_seps - i], &output_index);
+        if (output_index != -1) {
+            list[num_seps - i] = cut_args(list[num_seps - i], output_index);
+            output_index = -1;
+        }
+    }
+    inout->input_fds = inputs;
+    inout->output_fds = outputs;
+    return list;
+}
+
+char ***prepare_list(char ***list, io_descs inout, int num_seps, int *bg_flag, int *links) {
+    int amp_index = -1, num_descs;
     if (list[0][0] == NULL) {
         return list;
     }
-    *bg_flag = set_bg_flag(list[num_seps], &amp_index);
+    if (links == NULL) {
+        num_descs = 1;
+        list[num_seps] = get_bg(list[num_seps], bg_flag);
+    } else {
+        num_descs = num_seps + 1;
+    }
     if (amp_index != -1) {
         free(list[num_seps][amp_index]);
         list[num_seps][amp_index] = NULL;
     }
-    *input_fd = get_input_fd(list[0], &input_index);
-    if (input_index != -1) {
-        list[0] = cut_args(list[0], input_index);
-    }
-    *output_fd = get_output_fd(list[num_seps], &output_index);
-    if (output_index != -1) {
-        list[num_seps] = cut_args(list[num_seps], output_index);
-    }
+    list = get_io(list, inout, num_descs, num_seps);
     return list;
 }
 
@@ -298,7 +339,7 @@ pid_t exec_with_redirect(char **cmd, int input_pipe[], int output_pipe[]) {
     return pid;
 }
 
-void add_bg_pids(Execenv state, int num_new_pids) {
+void add_bg_pids(execenv state, int num_new_pids) {
     state->bg_pids = realloc(state->bg_pids, sizeof(pid_t) * (state->num_bg_pids + num_new_pids));
     for (int i = 0; i < num_new_pids; i++) {
         state->bg_pids[state->num_bg_pids + i] = state->pids[i];
@@ -316,13 +357,14 @@ int wait_pipeline(pid_t *pids, int num_pids) {
     return 0;
 }
 
-int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv state) {
+int exec_pipeline(char ***cmd_list, io_descs inout, int num_seps, execenv state) {
     int (*fd)[2] = malloc(sizeof(int[2]) * (num_seps + 2));
     state->pids = malloc(sizeof(pid_t) * (num_seps + 1));
-    fd[0][0] = input_fd;
+    state->num_procs = num_seps + 1;
+    fd[0][0] = inout->input_fds[0];
     fd[0][1] = -1;
     fd[num_seps + 1][0] = -1;
-    fd[num_seps + 1][1] = output_fd;
+    fd[num_seps + 1][1] = inout->output_fds[0];
     for (int i = 1; i < num_seps + 2; i++) {
         if (i != num_seps + 1 && pipe(fd[i]) < 0) {
             perror("pipe");
@@ -333,8 +375,6 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, E
         if (state->pids[i - 1] == 1) {
             free(fd);
             return 1;
-        } else {
-            state->num_cur_procs++;
         }
     }
     if (state->bg_flag) {
@@ -350,22 +390,28 @@ int exec_pipeline(char ***cmd_list, int input_fd, int output_fd, int num_seps, E
     return 0;
 }
 
-int exec_chain(char ***cmd_list, Execenv state, int num_seps, int *links) {
+int exec_chain(char ***cmd_list, execenv state, io_descs inout, int num_seps, int *links) {
     int wstatus;
+    pid_t pid;
     state->pids = malloc(sizeof(pid_t));
-    state->num_cur_procs = 1;
+    state->num_procs = 1;
     for (int i = 0; i < num_seps + 1; i++) {
-        *state->pids = fork();
-        if (*state->pids < 0) {
+        pid = fork();
+        if (pid < 0) {
             perror("fork");
             return 1;
         }
-        if (*state->pids == 0) {
+        if (pid == 0) {
+            if (redirect_io(inout->input_fds[i], inout->output_fds[i]) > 0) {
+                return 1;
+            }
             execvp(cmd_list[i][0], cmd_list[i]);
             perror("exec");
             return 1;
+        } else {
+            state->pids[0] = pid;
         }
-        if (waitpid(*state->pids, &wstatus, 0) < 0) {
+        if (waitpid(pid, &wstatus, 0) < 0) {
             perror("waitpid");
             return 1;
         }
@@ -381,7 +427,7 @@ int exec_chain(char ***cmd_list, Execenv state, int num_seps, int *links) {
     return 0;
 }
 
-int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv state, int *links, int input_err_flag) {
+int exec(char ***cmd_list, io_descs inout, int num_seps, execenv state, int *links, int input_err_flag) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
@@ -394,9 +440,9 @@ int exec(char ***cmd_list, int input_fd, int output_fd, int num_seps, Execenv st
         return 0;
     }
     if (links != NULL) {
-        return exec_chain(cmd_list, state, num_seps, links);
+        return exec_chain(cmd_list, state, inout, num_seps, links);
     }
-    return exec_pipeline(cmd_list, input_fd, output_fd, num_seps, state);
+    return exec_pipeline(cmd_list, inout, num_seps, state);
 }
 
 int is_exit(char *first_arg) {
@@ -406,11 +452,9 @@ int is_exit(char *first_arg) {
     return !strcmp(first_arg, "exit") || !strcmp(first_arg, "quit");
 }
 
-void term_bg_pids(pid_t *pids, int num_bg_pids) {
+void term_bg_pids(pid_t *bg_pids, int num_bg_pids) {
     for (int i = 0; i < num_bg_pids; i++) {
-        if (kill(pids[i], 0) != -1) {
-            kill(pids[i], SIGTERM);
-        }
+        kill(bg_pids[i], SIGTERM);
     }
 }
 
@@ -419,37 +463,38 @@ void print_prompt(const char *username, char *cur_dir) {
 }
 
 int main() {
-    int input_fd, output_fd, num_seps, input_err_flag;
+    int num_seps, input_err_flag;
     struct exec_environ shell_state = {NULL, 0, NULL, 0, 0};
-    Execenv state = &shell_state;
+    execenv state = &shell_state;
+    struct file_io_descs cur_io_descs = {NULL, NULL};
+    io_descs inout = &cur_io_descs;
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
     void handler(int signo) {
-        for (int i = 0; i < state->num_cur_procs; i++) {
+        for (int i = 0; i < state->num_procs; i++) {
             kill(state->pids[i], SIGINT);
         }
-        if (state->num_cur_procs > 0) {
+        if (state->num_procs > 0) {
             putchar('\n');
         }
     }
     signal(SIGINT, handler);
     while (1) {
-        input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
         input_err_flag = 0;
         num_seps = 0;
         print_prompt(user, getenv("PWD"));
         command = get_list(&num_seps, &links, &input_err_flag);
-        command = prepare_list(command, &input_fd, &output_fd, num_seps, &state->bg_flag, links);
+        command = prepare_list(command, inout, num_seps, &state->bg_flag, links);
         if (is_exit(command[0][0])) {
             term_bg_pids(state->bg_pids, state->num_bg_pids);
-            reset(command, state, links, END);
+            reset(command, state, inout, links, END);
             return 0;
         }
-        if (exec(command, input_fd, output_fd, num_seps, state, links, input_err_flag) > 0) {
-            reset(command, state, links, END);
+        if (exec(command, inout, num_seps, state, links, input_err_flag) > 0) {
+            reset(command, state, inout, links, END);
             exit(1);
         }
-        reset(command, state, links, CONT);
+        reset(command, state, inout, links, CONT);
     }
 }
