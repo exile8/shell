@@ -166,11 +166,12 @@ bad_code.c:4:28: error: expected ‘;’ before ‘i’
     4 |     for (int i = 0; i < 10. i++) {
       |                            ^~
       |                            ;
-user:/home/user/shell$ cmd-does-not-exit || cmd-does-not-exist || pwd
+user:/home/user/shell$ cmd-does-not-exist || cmd-does-not-exist || pwd
 exec: No such file or directory
 exec: No such file or directory
 /home/user/shell
-user:/home/user/shell$ 
+user:/home/user/shell$ echo word1 word2 word3 > input.txt && wc < input.txt > output.txt && cat output.txt
+ 1  3 18
 ```
 
 * Обработка сигнала **SIGINT** (ctrl + C)
