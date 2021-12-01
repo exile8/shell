@@ -473,7 +473,7 @@ int main() {
     char ***command;
     void handler(int signo) {
         for (int i = 0; i < state->num_procs; i++) {
-            kill(state->pids[i], SIGINT);
+            kill(state->pids[i], SIGKILL);
         }
         if (state->num_procs > 0) {
             putchar('\n');
