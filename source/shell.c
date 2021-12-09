@@ -9,10 +9,16 @@
 #include <signal.h>
 
 #define MAXPATH 256
-#define AND 0
-#define OR 1
-#define END 0
-#define CONT 1
+
+enum conveyor_type {
+    CONVEYOR_AND,
+    CONVEYOR_OR
+};
+
+enum resetting {
+    RESET_CONTINUE,
+    RESET_END
+};
 
 struct exec_environ {
     pid_t *pids;
@@ -104,12 +110,12 @@ char ***get_list(int *num_seps, int **links, int *input_err_flag) {
         list[len] = get_args(&end_flag, cur_separator);
         if (!strcmp(cur_separator, "&&")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
-            link_array[len] = AND;
+            link_array[len] = CONVEYOR_AND;
             num_links++;
         }
         if (!strcmp(cur_separator, "||")) {
             link_array = realloc(link_array, (len + 1) * sizeof(int));
-            link_array[len] = OR;
+            link_array[len] = CONVEYOR_OR;
             num_links++;
         }
         if (!strcmp(cur_separator, "|")) {
@@ -153,10 +159,10 @@ void reset(char ***list, execenv state, io_descs inout, int *links, int mode) {
         free(inout->output_fds);
         inout->output_fds = NULL;
     }
-    if (mode == END && state->bg_pids != NULL) {
+    if (mode == RESET_END && state->bg_pids != NULL) {
         free(state->bg_pids);
     }
-    if (mode == CONT) {
+    if (mode == RESET_CONTINUE) {
         state->bg_flag = 0;
         state->num_procs = 0;
     }
@@ -416,10 +422,10 @@ int exec_chain(char ***cmd_list, execenv state, io_descs inout, int num_seps, in
             return 1;
         }
         if (i < num_seps) {
-            if (wstatus == 0 && links[i] == OR) {
+            if (wstatus == 0 && links[i] == CONVEYOR_OR) {
                 break;
             }
-            if (wstatus != 0 && links[i] == AND) {
+            if (wstatus != 0 && links[i] == CONVEYOR_AND) {
                 break;
             }
         }
@@ -488,13 +494,13 @@ int main() {
         command = prepare_list(command, inout, num_seps, &state->bg_flag, links);
         if (is_exit(command[0][0])) {
             term_bg_pids(state->bg_pids, state->num_bg_pids);
-            reset(command, state, inout, links, END);
+            reset(command, state, inout, links, RESET_END);
             return 0;
         }
         if (exec(command, inout, num_seps, state, links, input_err_flag) > 0) {
-            reset(command, state, inout, links, END);
+            reset(command, state, inout, links, RESET_END);
             exit(1);
         }
-        reset(command, state, inout, links, CONT);
+        reset(command, state, inout, links, RESET_CONTINUE);
     }
 }
