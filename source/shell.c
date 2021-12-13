@@ -30,12 +30,12 @@ struct exec_environ {
 
 typedef struct exec_environ *execenv;
 
-struct file_io_descs {
+struct io_descriptors {
     int *input_fds;
     int *output_fds;
 };
 
-typedef struct file_io_descs *io_descs;
+typedef struct io_descriptors *io_fds;
 
 char skip_spaces(char cur_symbol) {
     while (cur_symbol == ' ' || cur_symbol == '\t') {
@@ -143,7 +143,7 @@ void remove_list(char ***list) {
     free(list);
 }
 
-void reset(char ***list, execenv state, io_descs inout, int *links, int mode) {
+void reset(char ***list, execenv state, io_fds inout, int *links, int mode) {
     if (links != NULL) {
         free(links);
     }
@@ -223,7 +223,7 @@ char **get_bg(char **cmd, int *bg_flag) {
     return cmd;
 }
 
-char ***get_io(char ***list, io_descs inout, int num_descs, int num_seps) {
+char ***get_io(char ***list, io_fds inout, int num_descs, int num_seps) {
     int input_index = -1, output_index = -1;
     int *inputs = malloc(sizeof(int) * num_descs);
     int *outputs = malloc(sizeof(int) * num_descs);
@@ -244,7 +244,7 @@ char ***get_io(char ***list, io_descs inout, int num_descs, int num_seps) {
     return list;
 }
 
-char ***prepare_list(char ***list, io_descs inout, int num_seps, int *bg_flag, int *links) {
+char ***prepare_list(char ***list, io_fds inout, int num_seps, int *bg_flag, int *links) {
     int amp_index = -1, num_descs;
     if (list[0][0] == NULL) {
         return list;
@@ -363,7 +363,7 @@ int wait_pipeline(pid_t *pids, int num_pids) {
     return 0;
 }
 
-int exec_pipeline(char ***cmd_list, io_descs inout, int num_seps, execenv state) {
+int exec_pipeline(char ***cmd_list, io_fds inout, int num_seps, execenv state) {
     int (*fd)[2] = malloc(sizeof(int[2]) * (num_seps + 2));
     state->pids = malloc(sizeof(pid_t) * (num_seps + 1));
     state->num_procs = num_seps + 1;
@@ -396,7 +396,7 @@ int exec_pipeline(char ***cmd_list, io_descs inout, int num_seps, execenv state)
     return 0;
 }
 
-int exec_chain(char ***cmd_list, execenv state, io_descs inout, int num_seps, int *links) {
+int exec_chain(char ***cmd_list, execenv state, io_fds inout, int num_seps, int *links) {
     int wstatus;
     pid_t pid;
     state->pids = malloc(sizeof(pid_t));
@@ -433,7 +433,7 @@ int exec_chain(char ***cmd_list, execenv state, io_descs inout, int num_seps, in
     return 0;
 }
 
-int exec(char ***cmd_list, io_descs inout, int num_seps, execenv state, int *links, int input_err_flag) {
+int exec(char ***cmd_list, io_fds inout, int num_seps, execenv state, int *links, int input_err_flag) {
     if (cmd_list[0][0] == NULL) {
         return 0;
     }
@@ -472,8 +472,8 @@ int main() {
     int num_seps, input_err_flag;
     struct exec_environ shell_state = {NULL, 0, NULL, 0, 0};
     execenv state = &shell_state;
-    struct file_io_descs cur_io_descs = {NULL, NULL};
-    io_descs inout = &cur_io_descs;
+    struct io_descriptors cur_io_fds = {NULL, NULL};
+    io_fds inout = &cur_io_fds;
     int *links = NULL;
     const char *user = getenv("USER");
     char ***command;
