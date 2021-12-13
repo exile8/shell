@@ -170,8 +170,8 @@ user:/home/user/shell$ cmd-does-not-exist || cmd-does-not-exist || pwd
 exec: No such file or directory
 exec: No such file or directory
 /home/user/shell
-user:/home/user/shell$ echo word1 word2 word3 > input.txt && wc < input.txt > output.txt && cat output.txt
- 1  3 18
+user:/home/user/shell$ echo word1 > output.txt && cat output.txt
+word1
 ```
 
 * Обработка сигнала **SIGINT** (ctrl + C)
@@ -212,6 +212,8 @@ user:/home/user/shell$ quit
 * 9.0
     * Обработка ctrl + C
 * 9.1
-    * Исправлена ошибка реализации обработки ctrl + C
+    * Исправлена ошибка в реализации обработки ctrl + C
 * 10.0
     * Конвейеры && и || работают для программ с перенаправлением ввода-вывода в файлы
+* 11.0
+    * Оптимизация кода
